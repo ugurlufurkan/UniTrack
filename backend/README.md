@@ -1,4 +1,4 @@
-﻿# UniTrack Backend
+# UniTrack Backend
 
 Mobil uygulamanın ve admin panelin konuştuğu REST API.
 
@@ -6,9 +6,10 @@ Mobil uygulamanın ve admin panelin konuştuğu REST API.
 
 ## Kurulum
 
+```
 npm install
 cp .env.example .env
-
+```
 
 `.env` içine doldurulması gerekenler:
 
@@ -19,9 +20,10 @@ cp .env.example .env
 
 ## Veritabanı
 
-npm run db:generate # schema.ts değişikliklerinden migration dosyası üretir
-npm run db:migrate # migration'ları veritabanına uygular
-
+```
+npm run db:generate   # schema.ts değişikliklerinden migration dosyası üretir
+npm run db:migrate    # migration'ları veritabanına uygular
+```
 
 Not: `drizzle-kit migrate` bazı durumlarda migration'ı gerçekten uygulamadan
 sessizce "tamamlandı" diyebiliyor (bilinen bir tuhaflık). Tabloların gerçekten
@@ -36,8 +38,9 @@ uygulamak gerekebilir.
 
 ## Çalıştırma
 
+```
 npm run dev
-
+```
 
 `http://localhost:5000` üzerinde ayağa kalkar. API kök yolu: `/api/v1`.
 
