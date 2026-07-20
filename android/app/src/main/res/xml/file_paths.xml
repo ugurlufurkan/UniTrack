@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- PDF çıktıları context.cacheDir/pdf altına yazılır ve buradan paylaşılır -->
+    <cache-path name="pdf_exports" path="pdf/" />
+    <!-- "Verilerimi dışa aktar" JSON yedeği context.cacheDir/backup altına yazılır -->
+    <cache-path name="backup_exports" path="backup/" />
+</paths>

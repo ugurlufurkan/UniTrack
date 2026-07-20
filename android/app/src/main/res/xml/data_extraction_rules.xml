@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?><!--
+   BUG FIX: bu dosya şablon halinde boştu — yani Auto Backup (API 31+) hiçbir
+   şeyi hariç tutmadan HER ŞEYİ yedekliyordu. `AuthPreferences.kt`'deki
+   "auth_prefs" DataStore'u (access/refresh JWT token'larını tutuyor) da bu
+   yedeğe dahildi; bir kullanıcı telefon değiştirdiğinde veya Google
+   yedeğinden geri yüklediğinde token'lar da kopyalanmış oluyordu. Artık
+   açıkça hariç tutuluyor — token'lar sadece giriş yapılan cihazda kalır.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/auth_prefs.preferences_pb" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/auth_prefs.preferences_pb" />
+    </device-transfer>
+</data-extraction-rules>

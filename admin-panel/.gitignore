@@ -1,0 +1,31 @@
+# Bağımlılıklar
+/node_modules
+
+# Next.js build çıktısı
+/.next/
+/out/
+
+# Ortam değişkenleri — İÇLERİNDE DATABASE_URL VE BETTER_AUTH_SECRET VAR, ASLA COMMIT ETME
+.env
+.env.local
+.env.*.local
+
+# Drizzle-kit'in ürettiği geçici dosyalar (migration SQL'lerinin kendisi kalsın, drizzle/ klasörünü SİLMEDİK)
+.drizzle
+
+# Editör/OS
+.vscode/*
+!.vscode/settings.json
+.idea
+.DS_Store
+Thumbs.db
+
+# Log dosyaları
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts

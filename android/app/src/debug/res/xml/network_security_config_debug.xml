@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sadece DEBUG build'de kullanılır (bkz. src/debug/AndroidManifest.xml).
+    Release build bu dosyayı hiç görmez — cleartext (http://) trafik
+    yalnızca emulator'ın host makineye baktığı 10.0.2.2 adresine, ve
+    yalnızca debug APK'da izinlidir. Prod domain'i her zaman HTTPS
+    üzerinden konuşur, herhangi bir istisna yok.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>

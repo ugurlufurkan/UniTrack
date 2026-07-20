@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.UniTrack" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Sadece açılışta, MainActivity kendi teması gösterilene kadar görünen splash teması.
+         installSplashScreen() bunu okuyup postSplashScreenTheme'e otomatik geçiş yapar. -->
+    <style name="Theme.UniTrack.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/brand_primary</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.UniTrack</item>
+    </style>
+</resources>

@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Etkinlik/ders hatırlatma bildirimleri için (Android 13+ zorunlu runtime izin). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name=".UniTrackApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.UniTrack"
+        tools:targetApi="31">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.UniTrack.Splash">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Oluşturulan transkript PDF'lerini diğer uygulamalarla (paylaş/kaydet) güvenli
+             biçimde paylaşmak için FileProvider -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Ana ekran widget'ı: GANO + yaklaşan görev sayısı (bkz. widget/UniTrackWidget.kt) -->
+        <receiver
+            android:name=".widget.UniTrackWidgetReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/unitrack_widget_info" />
+        </receiver>
+
+        <!-- WorkManager'ın varsayılan androidx-startup initializer'ı devre dışı.
+             UniTrackApp Configuration.Provider uyguluyor ve WorkManager'ı Hilt'in
+             HiltWorkerFactory'sini inject ettikten SONRA (onCreate içinde) elle
+             başlatıyor. Bu provider devre dışı bırakılmazsa, WorkManager
+             ContentProvider'lar oluşturulurken (Application.onCreate'ten ÖNCE, yani
+             Hilt henüz workerFactory'yi inject etmeden) otomatik başlamaya çalışıyor
+             ve "lateinit property workerFactory has not been initialized" hatasıyla
+             çöküyor. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
+</manifest>

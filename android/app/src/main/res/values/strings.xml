@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">UniTrack</string>
+    <string name="widget_description">GANO ve yaklaşan görev sayısını gösterir.</string>
+</resources>
