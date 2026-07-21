@@ -1,0 +1,14 @@
+# Tüm metin dosyaları için satır sonu tutarlılığı: git deposunda hep LF
+# saklanır, Windows'ta checkout edilirken sorun çıkarmaz. Bu dosya
+# eklenmeden önce Windows'ta yapılan CRLF dönüşümleri, aslında hiç
+# değişmemiş yüzlerce dosyanın "modified" görünmesine sebep oluyordu.
+* text=auto eol=lf
+
+# Binary dosyalar — asla satır sonu dönüşümüne uğramasın.
+*.png binary
+*.jpg binary
+*.webp binary
+*.ttf binary
+*.jar binary
+*.keystore binary
+*.ico binary
