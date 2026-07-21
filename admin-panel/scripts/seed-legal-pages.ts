@@ -44,7 +44,7 @@ Hesabını ve ilişkili verilerini istediğin zaman silebilirsin:
 
 ## İletişim
 
-Sorularınız için: [E-POSTA ADRESİNİ BURAYA EKLE]`;
+Sorularınız için: [furkanugurlu6806@gmail.com](mailto:furkanugurlu6806@gmail.com)`;
 
 const TERMS_CONTENT = `## Taslak — yayınlamadan önce gözden geçirilmeli
 
@@ -63,7 +63,7 @@ Ayarlar → Hesabımı Sil ile kapatabilirsin.
 
 ## İletişim
 
-Sorularınız için: [E-POSTA ADRESİNİ BURAYA EKLE]`;
+Sorularınız için: [furkanugurlu6806@gmail.com](mailto:furkanugurlu6806@gmail.com)`;
 
 async function upsert(slug: string, title: string, content: string) {
   const existing = await db.query.staticPages.findFirst({ where: eq(staticPages.slug, slug) });

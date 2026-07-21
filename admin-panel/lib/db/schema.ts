@@ -116,12 +116,19 @@ export const staticPages = pgTable("static_pages", {
    Play, hesap oluşturmaya izin veren uygulamalardan hem UYGULAMA İÇİNDE
    hem de UYGULAMAYI SİLMİŞ/YÜKLEMEMİŞ biri için AYRICA bir WEB sayfasından
    silme talebi alınabilmesini istiyor (bkz. app/legal/delete-account).
-   Bu tablo SADECE admin panelde yaşıyor — mobil backend'in schema.ts'i ile
-   senkron tutulması gerekmiyor, çünkü mobil backend bunu okumuyor; gerçek
-   silme işlemini (kullanıcı verisini backend'deki users/courses/... vb.
-   tablolardan silmek) hâlâ admin'in bu listeyi görüp backend'de elle/ayrı
-   bir script ile uygulaması gerekiyor — bu tablo sadece talebi KAYDA
-   GEÇİRİYOR, otomatik silme YAPMIYOR.
+
+   Akış:
+   1. Web formuna e-posta girilir -> bu tabloya "pending", verifiedAt=null
+      olarak kaydedilir ve o adrese bir onay linki gönderilir.
+   2. Kişi linke tıklayınca verifiedAt dolar. Buraya kadar hiçbir veri
+      silinmiyor — bu adım sadece "bu e-postanın gerçekten sahibiyim"
+      doğrulaması (yoksa herkes başkasının e-postasıyla sahte talep açıp
+      onun hesabını sildirebilirdi).
+   3. Admin panelinde SADECE doğrulanmış (verifiedAt dolu) talepler için
+      "Kalıcı Olarak Sil" butonu aktif olur; tıklanınca mobil backend'in
+      `users` tablosundan o e-postayla eşleşen kullanıcı GERÇEKTEN silinir
+      (bkz. deletion-requests/actions.ts) — cascade FK'ler sayesinde tüm
+      ders/not/devamsızlık/görev verisi de otomatik gider.
    ========================================================= */
 
 export const accountDeletionRequests = pgTable("account_deletion_requests", {
@@ -131,4 +138,12 @@ export const accountDeletionRequests = pgTable("account_deletion_requests", {
   status: varchar("status", { length: 20 }).notNull().default("pending"), // pending | completed
   createdAt: timestamp("created_at").notNull().defaultNow(),
   processedAt: timestamp("processed_at"),
+
+  // E-posta doğrulama: bu olmadan herkes başkasının e-postasıyla sahte
+  // silme talebi açabilirdi. Talep oluşturulunca bu adrese bir onay linki
+  // gönderiliyor; kullanıcı linke tıklayana kadar verifiedAt null kalıyor
+  // ve admin panelindeki "Kalıcı olarak sil" butonu bu talep için AÇILMIYOR.
+  verificationToken: varchar("verification_token", { length: 128 }),
+  verificationTokenExpiresAt: timestamp("verification_token_expires_at"),
+  verifiedAt: timestamp("verified_at"),
 });

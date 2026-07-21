@@ -12,7 +12,7 @@ export default function DeleteAccountForm() {
   if (state.status === "success") {
     return (
       <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-        Talebin alındı. Hesabınla ilişkili veriler kısa süre içinde silinecek.
+        {state.message}
       </div>
     );
   }
