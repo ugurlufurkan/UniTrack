@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -40,6 +42,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -57,7 +60,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.unitrack.app.ui.components.AnimatedNavIcon
 import com.unitrack.app.ui.components.PressableIconButton
 import com.unitrack.app.ui.components.click
 import com.unitrack.app.ui.components.glassBlurBackdrop
@@ -118,9 +120,6 @@ fun UniTrackNavHost(
     val haptic = LocalHapticFeedback.current
 
     Scaffold(
-        // Şeffaf: AmbientBackground'un mavi/mor köşe ışıkları her ekranın
-        // arkasında görünmeye devam etsin diye. Opak Scaffold zemini olsaydı
-        // ambient efekti tamamen örterdi.
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
@@ -147,27 +146,28 @@ fun UniTrackNavHost(
         bottomBar = {
             val backStackEntry by navController.currentBackStackEntryAsState()
             val currentRoute = backStackEntry?.destination
-            val surfaceColor = MaterialTheme.colorScheme.surface
+            // Çubuğun arkaplanı için "surface" yerine bilinçli olarak daha
+            // kalkık (elevated) bir yüzey rengi kullanılıyor: koyu temada
+            // background (#08080D) ile surface (#121218) birbirine çok
+            // yakın tonlar olduğundan, şeffaf "surface" ile çizilen çubuk
+            // gövdeyle neredeyse aynı siyaha karışıp seçilemez hale
+            // geliyordu. surfaceVariant hem koyu hem açık temada gövdeden
+            // net ayrışacak şekilde tanımlı.
+            val barColor = MaterialTheme.colorScheme.surfaceVariant
+            val primaryColor = MaterialTheme.colorScheme.primary
+            val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+            val dividerColor = MaterialTheme.colorScheme.outline
 
-            // NOT: Burada bilinçli olarak Material3 NavigationBar KULLANMIYORUZ.
-            // NavigationBar, içindeki tüm NavigationBarItem'lara eşit genişlik
-            // (weight) veriyor ve genişliği ekrana sabitliyor — 8 sekmeyle bu,
-            // "Takvim" gibi kelimelerin "Takvi..." diye kesilmesine yol açıyordu.
-            // Bunun yerine her sekme kendi doğal genişliğini alıyor ve bar
-            // yatay olarak kaydırılabiliyor; hiçbir etiket artık kesilmiyor.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .glassBlurBackdrop(blurRadius = 24.dp)
                     .background(
-                        surfaceColor.copy(alpha = if (isRealBlurSupported) 0.55f else 0.92f)
+                        barColor.copy(alpha = if (isRealBlurSupported) 0.85f else 0.97f)
                     )
                     .drawBehind {
-                        // İnce üst kenarlık: bar'ı içerikten net biçimde ayıran
-                        // bir "cam kenarı" — GlassCard'daki parlak kenarlıkla
-                        // aynı dilde.
                         drawLine(
-                            color = Color.White.copy(alpha = 0.10f),
+                            color = dividerColor,
                             start = Offset(0f, 0f),
                             end = Offset(size.width, 0f),
                             strokeWidth = 1.dp.toPx()
@@ -178,46 +178,60 @@ fun UniTrackNavHost(
             ) {
                 TABS.forEach { tab ->
                     val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
+
+                    // Seçiliyse ana renk (mavi), değilse temaya duyarlı
+                    // onSurfaceVariant — koyu temada açık gri (net görünür),
+                    // açık temada koyu gri (orada da net görünür).
                     val contentColor = if (selected) {
-                        MaterialTheme.colorScheme.primary
+                        primaryColor
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        unselectedColor
                     }
 
-                    Column(
-                        modifier = Modifier
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                navController.navigate(tab.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                    CompositionLocalProvider(LocalContentColor provides contentColor) {
+                        Column(
+                            modifier = Modifier
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    navController.navigate(tab.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
-                            }
-                            .widthIn(min = 64.dp)
-                            .padding(horizontal = 12.dp, vertical = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        AnimatedNavIcon(
-                            selected = selected,
-                            filled = tab.filledIcon,
-                            outlined = tab.outlinedIcon,
-                            contentDescription = tab.label
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        // Artık maxLines/ellipsis kısıtlaması yok — etiket kendi
-                        // doğal genişliğini alıyor, tek satırda tam görünüyor.
-                        Text(
-                            text = tab.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = contentColor,
-                            maxLines = 1,
-                            softWrap = false
-                        )
+                                .widthIn(min = 64.dp)
+                                .drawBehind {
+                                    if (selected) {
+                                        drawCircle(
+                                            color = primaryColor.copy(alpha = 0.2f),
+                                            radius = size.minDimension * 0.75f,
+                                            center = center.copy(y = center.y - 4.dp.toPx())
+                                        )
+                                    }
+                                }
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            // Sorunlu AnimatedNavIcon yerine doğrudan renk alan güvenilir Icon bileşeni
+                            Icon(
+                                imageVector = if (selected) tab.filledIcon else tab.outlinedIcon,
+                                contentDescription = tab.label,
+                                tint = contentColor,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = tab.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = contentColor,
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             }
@@ -292,12 +306,10 @@ fun UniTrackNavHost(
             }
             composable(Tab.Transcript.route) { TranscriptScreen(welcomeName = welcomeName) }
 
-            // ----- Görevler -----
             composable(Tab.Tasks.route) {
                 TaskScreen(onBack = { navController.popBackStack() })
             }
 
-            // ----- Devamsızlık — liste -----
             composable(Tab.Attendance.route) {
                 AttendanceScreen(
                     onBack = { navController.popBackStack() },
@@ -308,7 +320,6 @@ fun UniTrackNavHost(
                 )
             }
 
-            // ----- Devamsızlık — ders detayı (haftalık işaretleme) -----
             composable(
                 route = "attendance/course/{courseId}/{courseName}",
                 arguments = listOf(
@@ -328,7 +339,6 @@ fun UniTrackNavHost(
                 )
             }
 
-            // ----- Ayarlar (Veri dışa aktarma, Gizlilik Politikası, Hesap Silme) -----
             composable("settings") {
                 SettingsScreen(onBack = { navController.popBackStack() })
             }
