@@ -14,3 +14,9 @@ local.properties
 *.keystore
 
 android/.kotlin/
+
+# Android Studio / IntelliJ kişisel IDE ayarları — geliştiriciden geliştiriciye
+# değişir, repoya girmemeli.
+.idea/
+android/.idea/
+*.iml
