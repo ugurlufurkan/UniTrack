@@ -17,7 +17,7 @@ const statusEnum = z.enum(["pending", "in_progress", "completed", "cancelled"]);
 const recurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
 
 export const eventNotificationSchema = z.object({
-  id: z.string().uuid().optional(),
+  id: z.string().uuid().nullable().optional(),
   daysBefore: z.number().int().min(0).max(365).default(0),
   hoursBefore: z.number().int().min(0).max(23).default(0),
   minutesBefore: z.number().int().min(0).max(59).default(0),

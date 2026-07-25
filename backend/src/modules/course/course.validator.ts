@@ -2,7 +2,7 @@ import { z } from "zod";
 import { gradeScaleSchema } from "../../shared/validation/gradeScale.schema";
 
 export const courseComponentSchema = z.object({
-  id: z.string().uuid().optional(), // guncellemede mevcut bileseni esler
+  id: z.string().uuid().nullable().optional(), // guncellemede mevcut bileseni esler
   name: z.string().min(1).max(100),
   weight: z.number().min(0).max(100),
   score: z.number().min(0).max(100).nullable().optional(),
