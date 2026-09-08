@@ -43,6 +43,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -288,14 +289,68 @@ fun UniTrackNavHost(
                     }
                 )
             }
-            composable(Tab.Semesters.route) { SemesterScreen() }
-            composable(Tab.Courses.route) { CourseScreen() }
+            composable(Tab.Semesters.route) { entry ->
+                // BUG FIX: transkript aktarımı bittiğinde bu sekmelerin
+                // ViewModel'leri (aynı back stack entry'sinde yaşadıkları
+                // için) kendiliğinden yenilenmiyordu — yeni eklenen
+                // dönemler/dersler/GPA görünmüyordu. transcript_import
+                // ekranı "transcript_imported" bayrağını true yaparak geri
+                // dönüyor, ilgili her sekme bunu görüp bir kere refresh
+                // olup bayrağı sıfırlıyor.
+                val shouldRefresh by entry.savedStateHandle
+                    .getStateFlow("transcript_imported", false)
+                    .collectAsState()
+                SemesterScreen(
+                    refreshSignal = shouldRefresh,
+                    onRefreshHandled = { entry.savedStateHandle["transcript_imported"] = false }
+                )
+            }
+            composable(Tab.Courses.route) { entry ->
+                val shouldRefresh by entry.savedStateHandle
+                    .getStateFlow("transcript_imported", false)
+                    .collectAsState()
+                CourseScreen(
+                    onNavigateToTranscriptImport = { navController.navigate("transcript_import") },
+                    refreshSignal = shouldRefresh,
+                    onRefreshHandled = { entry.savedStateHandle["transcript_imported"] = false }
+                )
+            }
+            composable("transcript_import") {
+                com.unitrack.app.ui.transcriptimport.TranscriptImportScreen(
+                    onBack = {
+                        // Önceki (Courses) back stack entry'sine "veriler
+                        // değişmiş olabilir" sinyali bırakıyoruz. Diğer
+                        // sekmeler (Semesters/Gpa/Transcript) de kendi
+                        // entry'lerinde aynı bayrağı okuyup tazeleniyor.
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("transcript_imported", true)
+                        // Diğer sekmeler bu oturumda hiç açılmamış olabilir —
+                        // o zaman back stack'te henüz yoklar ve
+                        // getBackStackEntry çökme fırlatır. Sessizce atla,
+                        // zaten ilk açıldıklarında init{} kendi refresh()'ini
+                        // çalıştırıp güncel veriyi getirecek.
+                        listOf(Tab.Semesters.route, Tab.Gpa.route, Tab.Transcript.route).forEach { route ->
+                            runCatching {
+                                navController.getBackStackEntry(route)
+                                    .savedStateHandle["transcript_imported"] = true
+                            }
+                        }
+                        navController.popBackStack()
+                    }
+                )
+            }
             composable(Tab.Calendar.route) { CalendarScreen() }
-            composable(Tab.Gpa.route) {
+            composable(Tab.Gpa.route) { entry ->
+                val shouldRefresh by entry.savedStateHandle
+                    .getStateFlow("transcript_imported", false)
+                    .collectAsState()
                 GpaScreen(
                     onNavigateToSimulator = {
                         navController.navigate("gpa_simulator")
-                    }
+                    },
+                    refreshSignal = shouldRefresh,
+                    onRefreshHandled = { entry.savedStateHandle["transcript_imported"] = false }
                 )
             }
             composable("gpa_simulator") {
@@ -304,7 +359,16 @@ fun UniTrackNavHost(
             composable("statistics") {
                 StatisticsScreen()
             }
-            composable(Tab.Transcript.route) { TranscriptScreen(welcomeName = welcomeName) }
+            composable(Tab.Transcript.route) { entry ->
+                val shouldRefresh by entry.savedStateHandle
+                    .getStateFlow("transcript_imported", false)
+                    .collectAsState()
+                TranscriptScreen(
+                    welcomeName = welcomeName,
+                    refreshSignal = shouldRefresh,
+                    onRefreshHandled = { entry.savedStateHandle["transcript_imported"] = false }
+                )
+            }
 
             composable(Tab.Tasks.route) {
                 TaskScreen(onBack = { navController.popBackStack() })

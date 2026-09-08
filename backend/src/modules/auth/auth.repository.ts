@@ -184,13 +184,15 @@ class AuthRepository {
       .where(eq(refreshTokens.userId, userId));
   }
 
-  async revokeRefreshTokenById(tokenId: string) {
-    await db
+  async revokeRefreshTokenById(userId: string, tokenId: string) {
+    const result = await db
       .update(refreshTokens)
       .set({
         revokedAt: new Date(),
       })
-      .where(eq(refreshTokens.id, tokenId));
+      .where(and(eq(refreshTokens.id, tokenId), eq(refreshTokens.userId, userId)));
+
+    return result.rowCount ?? 0;
   }
 
   async getUserRefreshTokens(userId: string) {

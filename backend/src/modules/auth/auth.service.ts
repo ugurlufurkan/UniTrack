@@ -13,6 +13,19 @@ import { Request } from "express";
 import { randomBytes } from "crypto";
 
 class AuthService {
+  /** API response'a dönen user objesinden hassas alanları çıkarır. */
+  private sanitizeUser(user: Record<string, any>) {
+    const {
+      password,
+      passwordResetToken,
+      passwordResetExpiresAt,
+      emailVerificationToken,
+      emailVerificationExpiresAt,
+      ...safe
+    } = user;
+    return safe;
+  }
+
   private extractDeviceInfo(req: Request) {
     const deviceInfo = extractDeviceInfo(req);
     return {
@@ -82,7 +95,7 @@ class AuthService {
     return {
       success: true,
       message: "Giriş başarılı.",
-      user,
+      user: this.sanitizeUser(user),
       accessToken,
       refreshToken,
     };
@@ -114,7 +127,7 @@ class AuthService {
       throw AppError.unauthorized("Geçersiz email veya şifre.");
     }
 
-    const isPasswordValid = comparePassword(password, user.password);
+    const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
       await createAuditLog({
@@ -161,7 +174,7 @@ class AuthService {
     return {
       success: true,
       message: "Giriş başarılı.",
-      user,
+      user: this.sanitizeUser(user),
       accessToken,
       refreshToken,
     };
@@ -194,7 +207,7 @@ class AuthService {
       throw AppError.badRequest("Bu email zaten kayıtlı.");
     }
 
-    const hashedPassword = hashPassword(password);
+    const hashedPassword = await hashPassword(password);
 
     const user = await authRepository.createUser({
       email,
@@ -234,7 +247,7 @@ class AuthService {
     return {
       success: true,
       message: "Kayıt başarılı.",
-      user,
+      user: this.sanitizeUser(user),
       accessToken,
       refreshToken,
     };
@@ -385,7 +398,11 @@ class AuthService {
   }
 
   async logoutDevice(userId: string, tokenId: string, req?: Request) {
-    await authRepository.revokeRefreshTokenById(tokenId);
+    const affected = await authRepository.revokeRefreshTokenById(userId, tokenId);
+
+    if (affected === 0) {
+      throw AppError.notFound("Cihaz oturumu bulunamadı.");
+    }
 
     await createAuditLog({
       userId,
@@ -533,7 +550,7 @@ class AuthService {
       );
     }
 
-    const hashedPassword = hashPassword(newPassword);
+    const hashedPassword = await hashPassword(newPassword);
 
     await authRepository.updateUser(user.id, {
       password: hashedPassword,
@@ -564,7 +581,7 @@ class AuthService {
       throw AppError.badRequest("Kullanıcı bulunamadı veya şifre yok.");
     }
 
-    const isPasswordValid = comparePassword(currentPassword, user.password);
+    const isPasswordValid = await comparePassword(currentPassword, user.password);
 
     if (!isPasswordValid) {
       throw AppError.unauthorized("Mevcut şifre hatalı.");
@@ -577,7 +594,7 @@ class AuthService {
       );
     }
 
-    const hashedPassword = hashPassword(newPassword);
+    const hashedPassword = await hashPassword(newPassword);
 
     await authRepository.updateUser(userId, {
       password: hashedPassword,

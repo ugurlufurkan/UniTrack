@@ -4,6 +4,7 @@ import helmet from "helmet";
 import cors from "cors";
 import compression from "compression";
 import hpp from "hpp";
+import cookieParser from "cookie-parser";
 
 import swaggerDocument from "./docs/swagger";
 import authRoutes from "./modules/auth/auth.routes";
@@ -13,6 +14,7 @@ import gpaRoutes from "./modules/gpa/gpa.routes";
 import statisticsRoutes from "./modules/statistics/statistics.routes";
 import dashboardRoutes from "./modules/dashboard/dashboard.routes";
 import transcriptRoutes from "./modules/transcript/transcript.routes";
+import transcriptImportRoutes from "./modules/transcript-import/transcript-import.routes"; // <-- EKLENDİ
 import gradeScaleRoutes from "./modules/grade-scale/gradeScale.routes";
 import calendarRoutes from "./modules/calendar/calendar.routes";
 import attendanceRoutes from "./modules/attendance/attendance.routes";
@@ -77,6 +79,7 @@ app.use(cors({
 
 app.use(compression());
 app.use(hpp());
+app.use(cookieParser());
 
 // Rate limiting
 app.use(rateLimiter);
@@ -124,6 +127,7 @@ v1Router.use("/gpa", gpaRoutes);
 v1Router.use("/statistics", statisticsRoutes);
 v1Router.use("/dashboard", dashboardRoutes);
 v1Router.use("/transcript", transcriptRoutes);
+v1Router.use("/transcript-import", transcriptImportRoutes); // <-- EKLENDİ
 v1Router.use("/grade-scale", gradeScaleRoutes);
 v1Router.use("/calendar", calendarRoutes);
 v1Router.use("/attendance", attendanceRoutes);

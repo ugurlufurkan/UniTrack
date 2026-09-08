@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,8 +58,20 @@ private val TERMS = listOf("Güz", "Bahar", "Yaz")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SemesterScreen(
-    viewModel: SemesterViewModel = hiltViewModel()
+    viewModel: SemesterViewModel = hiltViewModel(),
+    // BUG FIX: CourseScreen'deki ile aynı sorun — transkript aktarımından
+    // dönüşte bu ViewModel yeniden oluşmadığı için yeni eklenen dönemler
+    // ekranda görünmüyordu. NavHost bize dönüşte haber veriyor.
+    refreshSignal: Boolean = false,
+    onRefreshHandled: () -> Unit = {}
 ) {
+    LaunchedEffect(refreshSignal) {
+        if (refreshSignal) {
+            viewModel.refresh()
+            onRefreshHandled()
+        }
+    }
+
     val semesters by viewModel.semesters.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()

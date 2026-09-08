@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Checkbox
@@ -74,8 +75,25 @@ import com.unitrack.app.ui.components.rememberSuccessPulseState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CourseScreen(
-    viewModel: CourseViewModel = hiltViewModel()
+    viewModel: CourseViewModel = hiltViewModel(),
+    onNavigateToTranscriptImport: () -> Unit = {},
+    // BUG FIX: Transkript aktarımından (veya başka bir ekrandan) bu sekmeye
+    // geri dönüldüğünde CourseViewModel yeniden oluşturulmuyor (aynı nav
+    // back stack entry'sine bağlı), bu yüzden init{} içindeki refresh() bir
+    // daha çalışmıyordu — yeni eklenen dönem/dersler ekranda GÖRÜNMÜYORDU
+    // (aslında backend'e kaydediliyordu, sadece bu ekran tazelenmiyordu).
+    // NavHost, transcript_import'tan dönüşte bu değeri true yaparak bize
+    // haber veriyor.
+    refreshSignal: Boolean = false,
+    onRefreshHandled: () -> Unit = {}
 ) {
+    LaunchedEffect(refreshSignal) {
+        if (refreshSignal) {
+            viewModel.refresh()
+            onRefreshHandled()
+        }
+    }
+
     val courses by viewModel.courses.collectAsState()
     val semesters by viewModel.semesters.collectAsState()
     val defaultGradeScale by viewModel.defaultGradeScale.collectAsState()
@@ -120,10 +138,20 @@ fun CourseScreen(
                     ListSkeleton()
                 }
                 semesters.isEmpty() -> {
-                    EmptyState(
-                        message = "Ders ekleyebilmek için önce bir dönem oluşturmalısın.",
-                        modifier = Modifier.align(Alignment.Center)
-                    )
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        EmptyState(
+                            message = "Ders ekleyebilmek için önce bir dönem oluşturmalısın."
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        PremiumTextButton(onClick = onNavigateToTranscriptImport) {
+                            Icon(Icons.Default.UploadFile, contentDescription = null)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Transkriptini Yükleyerek Başla")
+                        }
+                    }
                 }
                 else -> {
                     Column(modifier = Modifier.fillMaxSize()) {
@@ -133,6 +161,12 @@ fun CourseScreen(
                                 .padding(horizontal = 16.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.End
                         ) {
+                            PremiumTextButton(onClick = onNavigateToTranscriptImport) {
+                                Icon(Icons.Default.UploadFile, contentDescription = null)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Transkript Yükle")
+                            }
+                            Spacer(modifier = Modifier.width(4.dp))
                             PremiumTextButton(onClick = { showDefaultScaleDialog = true }) {
                                 Icon(Icons.Default.Settings, contentDescription = null)
                                 Spacer(modifier = Modifier.width(4.dp))
@@ -261,7 +295,11 @@ private fun CourseRow(course: CourseDto, onEdit: () -> Unit, onDelete: () -> Uni
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = course.name, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = course.name, 
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f)
+                )
                 Row {
                     PressableIconButton(onClick = onEdit) {
                         Icon(Icons.Default.Edit, contentDescription = "Düzenle")

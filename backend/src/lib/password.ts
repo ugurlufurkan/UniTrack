@@ -9,12 +9,12 @@ export interface PasswordStrengthResult {
   feedback: string[];
 }
 
-export function hashPassword(password: string): string {
-  return bcrypt.hashSync(password, SALT_ROUNDS);
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
 }
 
-export function comparePassword(password: string, hash: string): boolean {
-  return bcrypt.compareSync(password, hash);
+export async function comparePassword(password: string, hash: string): Promise<boolean> {
+  return bcrypt.compare(password, hash);
 }
 
 export function validatePasswordStrength(password: string): PasswordStrengthResult {

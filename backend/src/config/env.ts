@@ -2,6 +2,19 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+const required = [
+  "DATABASE_URL",
+  "JWT_SECRET",
+  "JWT_REFRESH_SECRET",
+  "GOOGLE_CLIENT_ID",
+] as const;
+
+for (const key of required) {
+  if (!process.env[key]) {
+    throw new Error(`❌ Missing required env variable: ${key} — check your .env file.`);
+  }
+}
+
 export const env = {
   PORT: Number(process.env.PORT ?? 5000),
 
@@ -12,6 +25,8 @@ export const env = {
   JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET!,
 
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID!,
+
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY,
 
   NODE_ENV: process.env.NODE_ENV || "development",
 

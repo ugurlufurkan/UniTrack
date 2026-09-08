@@ -9,6 +9,7 @@ import com.unitrack.app.data.api.CalendarApiService
 import com.unitrack.app.data.api.ExportApiService
 import com.unitrack.app.data.api.SettingsApiService
 import com.unitrack.app.data.api.TaskApiService
+import com.unitrack.app.data.api.TranscriptImportApiService
 import com.unitrack.app.data.network.RetryInterceptor
 import com.unitrack.app.data.network.api.auth.TokenAuthenticator
 import dagger.Module
@@ -149,4 +150,11 @@ object NetworkModule {
         retrofit: Retrofit
     ): ExportApiService =
         retrofit.create(ExportApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideTranscriptImportApiService(
+        retrofit: Retrofit
+    ): TranscriptImportApiService =
+        retrofit.create(TranscriptImportApiService::class.java)
 }

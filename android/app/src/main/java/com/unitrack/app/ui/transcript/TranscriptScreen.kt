@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,8 +61,19 @@ import kotlinx.coroutines.withContext
 @Composable
 fun TranscriptScreen(
     welcomeName: String = "Öğrenci",
-    viewModel: TranscriptViewModel = hiltViewModel()
+    viewModel: TranscriptViewModel = hiltViewModel(),
+    // BUG FIX: transkript aktarımından dönüşte bu ekran da eski (aktarım
+    // öncesi) listeyi göstermeye devam ediyordu.
+    refreshSignal: Boolean = false,
+    onRefreshHandled: () -> Unit = {}
 ) {
+    LaunchedEffect(refreshSignal) {
+        if (refreshSignal) {
+            viewModel.refresh()
+            onRefreshHandled()
+        }
+    }
+
     val state by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val refreshError by viewModel.refreshError.collectAsState()

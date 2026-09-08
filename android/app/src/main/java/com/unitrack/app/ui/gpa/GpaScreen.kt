@@ -22,6 +22,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,8 +45,19 @@ import com.unitrack.app.ui.components.refresh
 @Composable
 fun GpaScreen(
     onNavigateToSimulator: () -> Unit = {},
-    viewModel: GpaViewModel = hiltViewModel()
+    viewModel: GpaViewModel = hiltViewModel(),
+    // BUG FIX: transkript aktarımından dönüşte GPA yeniden hesaplanmıyordu,
+    // eski (aktarım öncesi) ortalama görünmeye devam ediyordu.
+    refreshSignal: Boolean = false,
+    onRefreshHandled: () -> Unit = {}
 ) {
+    LaunchedEffect(refreshSignal) {
+        if (refreshSignal) {
+            viewModel.refresh()
+            onRefreshHandled()
+        }
+    }
+
     val state by viewModel.uiState.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val refreshError by viewModel.refreshError.collectAsState()
