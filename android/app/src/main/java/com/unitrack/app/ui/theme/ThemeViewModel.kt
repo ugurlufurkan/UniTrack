@@ -32,12 +32,25 @@ class ThemeViewModel @Inject constructor(
             initialValue = ThemeMode.SYSTEM
         )
 
+    val showSplash: StateFlow<Boolean> = themePreferences.showSplash
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = true
+        )
+
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch {
             themePreferences.setThemeMode(mode)
             // En iyi çaba (best-effort): sunucuya yansıtılamazsa bile
             // cihazdaki tercih zaten kaydedildi, kullanıcı bunu fark etmez.
             settingsSyncRepository.pushThemeMode(mode)
+        }
+    }
+
+    fun setShowSplash(show: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setShowSplash(show)
         }
     }
 }

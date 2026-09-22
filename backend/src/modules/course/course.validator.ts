@@ -3,9 +3,16 @@ import { gradeScaleSchema } from "../../shared/validation/gradeScale.schema";
 
 export const courseComponentSchema = z.object({
   id: z.string().uuid().nullable().optional(), // guncellemede mevcut bileseni esler
-  name: z.string().min(1).max(100),
-  weight: z.number().min(0).max(100),
-  score: z.number().min(0).max(100).nullable().optional(),
+  name: z.string()
+    .min(1, "Bileşen adı boş bırakılamaz.")
+    .max(100, "Bileşen adı çok uzun."),
+  weight: z.number()
+    .min(0, "Ağırlık sıfırdan küçük olamaz.")
+    .max(100, "Ağırlık %100'den büyük olamaz."),
+  score: z.number()
+    .min(0, "Not sıfırdan küçük olamaz.")
+    .max(100, "Not 100'den büyük olamaz.")
+    .nullable().optional(),
 });
 
 const componentsRefinement = (
@@ -17,8 +24,12 @@ const componentsRefinement = (
 
 export const createCourseSchema = z.object({
   semesterId: z.string().uuid(),
-  name: z.string().min(2).max(150),
-  credit: z.number().min(1).max(30),
+  name: z.string()
+    .min(2, "Ders adı en az 2 karakter olmalıdır.")
+    .max(150, "Ders adı çok uzun."),
+  credit: z.number()
+    .min(1, "Kredi değeri en az 1 olmalıdır.")
+    .max(30, "Kredi değeri çok yüksek."),
   components: z
     .array(courseComponentSchema)
     .min(1, "En az bir bileşen (Vize, Final, Proje vb.) eklemelisin.")
@@ -30,8 +41,14 @@ export const createCourseSchema = z.object({
 });
 
 export const updateCourseSchema = z.object({
-  name: z.string().min(2).max(150).optional(),
-  credit: z.number().min(1).max(30).optional(),
+  name: z.string()
+    .min(2, "Ders adı en az 2 karakter olmalıdır.")
+    .max(150, "Ders adı çok uzun.")
+    .optional(),
+  credit: z.number()
+    .min(1, "Kredi değeri en az 1 olmalıdır.")
+    .max(30, "Kredi değeri çok yüksek.")
+    .optional(),
   components: z
     .array(courseComponentSchema)
     .min(1, "En az bir bileşen (Vize, Final, Proje vb.) eklemelisin.")

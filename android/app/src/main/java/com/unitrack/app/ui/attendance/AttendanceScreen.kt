@@ -22,12 +22,14 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -74,32 +76,34 @@ fun AttendanceScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = Spacing.screenHorizontal)
-        ) {
-            when (val state = uiState) {
-                is AttendanceUiState.Loading -> ListSkeleton()
-                is AttendanceUiState.Error -> ErrorState(
-                    message = state.message,
-                    onRetry = { viewModel.refresh() }
-                )
-                is AttendanceUiState.Success -> {
-                    if (state.overview.courses.size > 1) {
-                        SearchField(
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            placeholder = "Ders ara...",
-                            modifier = Modifier.padding(top = Spacing.sm)
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = Spacing.screenHorizontal)
+            ) {
+                when (val state = uiState) {
+                    is AttendanceUiState.Loading -> ListSkeleton()
+                    is AttendanceUiState.Error -> ErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.refresh() }
+                    )
+                    is AttendanceUiState.Success -> {
+                        if (state.overview.courses.size > 1) {
+                            SearchField(
+                                query = searchQuery,
+                                onQueryChange = { searchQuery = it },
+                                placeholder = "Ders ara...",
+                                modifier = Modifier.padding(top = Spacing.sm)
+                            )
+                        }
+                        AttendanceContent(
+                            overview = state.overview,
+                            searchQuery = searchQuery,
+                            onOpenCourse = onOpenCourse
                         )
                     }
-                    AttendanceContent(
-                        overview = state.overview,
-                        searchQuery = searchQuery,
-                        onOpenCourse = onOpenCourse
-                    )
                 }
             }
         }
@@ -261,7 +265,7 @@ private fun CourseAttendanceRow(
                     AttendanceStat(label = "İzinli", value = course.excusedHours, color = MaterialTheme.colorScheme.secondary)
                 }
                 if (course.isAtRisk) {
-                    AtRiskChip()
+                    AtRiskChip(course.absentHours, course.attendanceLimitHours)
                 } else if (course.remainingAllowedHours != null) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -307,12 +311,20 @@ private fun AttendanceStat(label: String, value: Int, color: Color) {
 }
 
 @Composable
-private fun AtRiskChip() {
+private fun AtRiskChip(absentHours: Int, attendanceLimitHours: Int) {
     val errorColor = MaterialTheme.colorScheme.error
+    val yellowWarningColor = Color(0xFFD69E2E)
+    
+    val badgeColor = when {
+        absentHours > attendanceLimitHours -> errorColor
+        absentHours == attendanceLimitHours -> yellowWarningColor
+        else -> errorColor
+    }
+    
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(errorColor.copy(alpha = 0.15f))
+            .background(badgeColor.copy(alpha = 0.15f))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -320,13 +332,19 @@ private fun AtRiskChip() {
                 Icons.Filled.Warning,
                 contentDescription = null,
                 modifier = Modifier.size(12.dp),
-                tint = errorColor
+                tint = badgeColor
             )
             Spacer(Modifier.width(3.dp))
+            
+            val riskText = when {
+                absentHours == attendanceLimitHours -> "Sınırda: Hakkınız Doldu"
+                absentHours > attendanceLimitHours -> "Kritik: Devamsızlık Sınırını Aştınız!"
+                else -> "Devamsızlık riski"
+            }
             Text(
-                text = "Devamsızlık riski",
+                text = riskText,
                 style = MaterialTheme.typography.labelSmall,
-                color = errorColor
+                color = badgeColor
             )
         }
     }

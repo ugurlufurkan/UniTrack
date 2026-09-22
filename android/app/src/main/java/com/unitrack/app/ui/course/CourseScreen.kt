@@ -1,5 +1,6 @@
 package com.unitrack.app.ui.course
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -243,13 +244,13 @@ fun CourseScreen(
             initialCourse = null,
             defaultGradeScale = defaultGradeScale,
             onDismiss = { showAddDialog = false },
-            onConfirm = { semesterId, name, credit, components, gradeScale ->
-                viewModel.addCourse(semesterId, name, credit, components, gradeScale) { success ->
+            onConfirm = { semesterId, name, credit, components, gradeScale, onResult ->
+                viewModel.addCourse(semesterId, name, credit, components, gradeScale) { success, error ->
                     if (success) {
                         successPulse.trigger()
                         showAddDialog = false
                     }
-                    // Başarısızsa dialog açık kalır, hata snackbar'da zaten gösteriliyor.
+                    onResult(success, error)
                 }
             }
         )
@@ -262,12 +263,13 @@ fun CourseScreen(
             initialCourse = course,
             defaultGradeScale = defaultGradeScale,
             onDismiss = { editingCourse = null },
-            onConfirm = { _, name, credit, components, gradeScale ->
-                viewModel.updateCourse(course.id, name, credit, components, gradeScale) { success ->
+            onConfirm = { _, name, credit, components, gradeScale, onResult ->
+                viewModel.updateCourse(course.id, name, credit, components, gradeScale) { success, error ->
                     if (success) {
                         successPulse.trigger()
                         editingCourse = null
                     }
+                    onResult(success, error)
                 }
             }
         )
@@ -361,7 +363,8 @@ private fun CourseFormDialog(
         name: String,
         credit: Int,
         components: List<CourseComponentDto>,
-        gradeScale: List<GradeBandDto>?
+        gradeScale: List<GradeBandDto>?,
+        onResult: (Boolean, String?) -> Unit
     ) -> Unit
 ) {
     val initialSemester = semesters.firstOrNull {
@@ -372,6 +375,7 @@ private fun CourseFormDialog(
     var expanded by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf(initialCourse?.name ?: "") }
     var credit by remember { mutableStateOf(initialCourse?.credit?.toString() ?: "") }
+    var submitError by remember { mutableStateOf<String?>(null) }
 
     val components = remember {
         mutableStateListOf<ComponentFormState>().apply {
@@ -420,6 +424,20 @@ private fun CourseFormDialog(
                     style = MaterialTheme.typography.headlineSmall,
                     modifier = Modifier.padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 16.dp)
                 )
+
+                androidx.compose.animation.AnimatedVisibility(visible = submitError != null) {
+                    Text(
+                        text = submitError ?: "",
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                            .padding(bottom = 16.dp)
+                            .background(MaterialTheme.colorScheme.errorContainer, MaterialTheme.shapes.small)
+                            .padding(12.dp)
+                    )
+                }
 
                 // Form Alanı (Kaydırılabilir)
                 Column(
@@ -601,7 +619,12 @@ private fun CourseFormDialog(
                                 componentDtos.size == components.size &&
                                 (!useCustomScale || gradeScale != null)
                             ) {
-                                onConfirm(selectedSemester.id, name.trim(), creditInt, componentDtos, gradeScale)
+                                submitError = null
+                                onConfirm(selectedSemester.id, name.trim(), creditInt, componentDtos, gradeScale) { success, errorMsg ->
+                                    if (!success) {
+                                        submitError = errorMsg
+                                    }
+                                }
                             }
                         },
                         enabled = name.isNotBlank() && credit.toIntOrNull() != null && weightValid && components.isNotEmpty()

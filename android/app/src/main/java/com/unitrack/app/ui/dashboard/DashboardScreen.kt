@@ -18,6 +18,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.BarChart
@@ -173,16 +176,45 @@ fun DashboardScreen(
                 .padding(16.dp)
         ) {
 
-            Text(
-                text = "Merhaba, $welcomeName 👋",
-                style = MaterialTheme.typography.headlineSmall
-            )
+            // Splash animasyonu kapatıp açma düğmesi (Üstte uzunlamasına)
+            val themeViewModel: com.unitrack.app.ui.theme.ThemeViewModel = androidx.hilt.navigation.compose.hiltViewModel()
+            val showSplash by themeViewModel.showSplash.collectAsState()
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { themeViewModel.setShowSplash(!showSplash) }
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Text(
+                    text = "Açılış Animasyonunu Göster",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                androidx.compose.material3.Switch(
+                    checked = showSplash,
+                    onCheckedChange = { themeViewModel.setShowSplash(it) },
+                    modifier = Modifier.scale(0.8f)
+                )
+            }
 
-            Text(
-                text = "İşte genel akademik durumun",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column {
+                Text(
+                    text = "Merhaba, $welcomeName 👋",
+                    style = MaterialTheme.typography.headlineSmall
+                )
+                Text(
+                    text = "İşte genel akademik durumun",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 

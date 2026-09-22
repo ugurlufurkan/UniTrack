@@ -33,6 +33,7 @@ class ThemePreferences @Inject constructor(
 ) {
     companion object {
         private val THEME_MODE = stringPreferencesKey("theme_mode")
+        private val SHOW_SPLASH = androidx.datastore.preferences.core.booleanPreferencesKey("show_splash")
     }
 
     val themeMode: Flow<ThemeMode> = context.themeStore.data.map { prefs ->
@@ -43,9 +44,19 @@ class ThemePreferences @Inject constructor(
         }
     }
 
+    val showSplash: Flow<Boolean> = context.themeStore.data.map { prefs ->
+        prefs[SHOW_SPLASH] ?: true // Varsayılan olarak açık
+    }
+
     suspend fun setThemeMode(mode: ThemeMode) {
         context.themeStore.edit { prefs ->
             prefs[THEME_MODE] = mode.name
+        }
+    }
+
+    suspend fun setShowSplash(show: Boolean) {
+        context.themeStore.edit { prefs ->
+            prefs[SHOW_SPLASH] = show
         }
     }
 }

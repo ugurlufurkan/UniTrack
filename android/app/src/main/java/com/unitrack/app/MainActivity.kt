@@ -15,6 +15,9 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -27,6 +30,7 @@ import com.unitrack.app.ui.auth.AuthViewModel
 import com.unitrack.app.ui.auth.LoginScreen
 import com.unitrack.app.ui.components.AmbientBackground
 import com.unitrack.app.ui.nav.UniTrackNavHost
+import com.unitrack.app.ui.splash.AnimatedSplashScreen
 import com.unitrack.app.ui.theme.AmbientMoodViewModel
 import com.unitrack.app.data.local.ThemeMode
 import com.unitrack.app.ui.theme.ThemeViewModel
@@ -87,16 +91,11 @@ class MainActivity : ComponentActivity() {
         // ve saydamlaşarak kapanıyor. `onSplashExitAnimationEnd()` çağrısı
         // ZORUNLU — çağrılmazsa splash view sonsuza kadar ekranda asılı kalır.
         splashScreen.setOnExitAnimationListener { splashScreenView ->
-            val zoomOut = ObjectAnimator.ofFloat(splashScreenView.iconView, "scaleX", 1f, 1.15f)
-            val zoomOutY = ObjectAnimator.ofFloat(splashScreenView.iconView, "scaleY", 1f, 1.15f)
-            val slideUp = ObjectAnimator.ofFloat(
-                splashScreenView.view, "translationY", 0f, -splashScreenView.view.height * 0.08f
-            )
             val fadeOut = ObjectAnimator.ofFloat(splashScreenView.view, "alpha", 1f, 0f)
 
             AnimatorSet().apply {
-                playTogether(zoomOut, zoomOutY, slideUp, fadeOut)
-                duration = 350L
+                play(fadeOut)
+                duration = 150L
                 interpolator = AccelerateInterpolator()
                 addListener(object : Animator.AnimatorListener {
                     override fun onAnimationStart(animation: Animator) = Unit
@@ -111,48 +110,58 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            // Daha önce burada çıplak MaterialTheme {} çağrılıyordu; UniTrackTheme hiç
-            // bağlanmamıştı. Artık Material 3 + Dynamic Color + Dark Theme gerçekten aktif.
-            //
-            // Surface yerine AmbientBackground: tüm uygulamanın arkasında tek bir yerden
-            // yönetilen premium koyu zemin + köşe ışıkları (bkz. AmbientBackground.kt).
-            val themeMode by themeViewModel.themeMode.collectAsState()
-            val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
-            val darkTheme = when (themeMode) {
-                ThemeMode.LIGHT -> false
-                ThemeMode.DARK -> true
-                ThemeMode.SYSTEM -> isSystemDark
-            }
+            val showCustomSplashPref by themeViewModel.showSplash.collectAsState()
+            var splashCompleted by remember { mutableStateOf(false) }
 
-            UniTrackTheme(darkTheme = darkTheme) {
-                val isExamWeek by ambientMoodViewModel.isExamWeek.collectAsState()
+            // Eğer ayarlardan kapalıysa veya bir kez bittiyse animasyonu geç
+            if (showCustomSplashPref && !splashCompleted) {
+                AnimatedSplashScreen(
+                    onSplashFinished = { splashCompleted = true }
+                )
+            } else {
+                // Daha önce burada çıplak MaterialTheme {} çağrılıyordu; UniTrackTheme hiç
+                // bağlanmamıştı. Artık Material 3 + Dynamic Color + Dark Theme gerçekten aktif.
+                //
+                // Surface yerine AmbientBackground: tüm uygulamanın arkasında tek bir yerden
+                // yönetilen premium koyu zemin + köşe ışıkları (bkz. AmbientBackground.kt).
+                val themeMode by themeViewModel.themeMode.collectAsState()
+                val isSystemDark = androidx.compose.foundation.isSystemInDarkTheme()
+                val darkTheme = when (themeMode) {
+                    ThemeMode.LIGHT -> false
+                    ThemeMode.DARK -> true
+                    ThemeMode.SYSTEM -> isSystemDark
+                }
 
-                AmbientBackground(
-                    modifier = Modifier.fillMaxSize(),
-                    examWeek = isExamWeek
-                ) {
-                    val authState by authViewModel.authState.collectAsState()
+                UniTrackTheme(darkTheme = darkTheme) {
+                    val isExamWeek by ambientMoodViewModel.isExamWeek.collectAsState()
 
-                    when (val state = authState) {
-                        is AuthState.Success -> {
-                            UniTrackNavHost(
-                                welcomeName = state.name,
-                                onLogout = { authViewModel.logout() },
-                                themeMode = themeMode,
-                                onThemeModeChange = { themeViewModel.setThemeMode(it) }
-                            )
-                        }
-                        AuthState.Checking -> {
-                            // Bu dala normalde hiç düşülmez: splash screen bu state boyunca
-                            // ekranı zaten kaplıyor. Yine de savunma amaçlı boş bırakılıyor.
-                        }
-                        else -> {
-                            LoginScreen(
-                                viewModel = authViewModel,
-                                onLoginSuccess = {
-                                    // authState Success olduğunda yukarıdaki when otomatik panele geçer
-                                }
-                            )
+                    AmbientBackground(
+                        modifier = Modifier.fillMaxSize(),
+                        examWeek = isExamWeek
+                    ) {
+                        val authState by authViewModel.authState.collectAsState()
+
+                        when (val state = authState) {
+                            is AuthState.Success -> {
+                                UniTrackNavHost(
+                                    welcomeName = state.name,
+                                    onLogout = { authViewModel.logout() },
+                                    themeMode = themeMode,
+                                    onThemeModeChange = { themeViewModel.setThemeMode(it) }
+                                )
+                            }
+                            AuthState.Checking -> {
+                                // Bu dala normalde hiç düşülmez: splash screen bu state boyunca
+                                // ekranı zaten kaplıyor. Yine de savunma amaçlı boş bırakılıyor.
+                            }
+                            else -> {
+                                LoginScreen(
+                                    viewModel = authViewModel,
+                                    onLoginSuccess = {
+                                        // authState Success olduğunda yukarıdaki when otomatik panele geçer
+                                    }
+                                )
+                            }
                         }
                     }
                 }

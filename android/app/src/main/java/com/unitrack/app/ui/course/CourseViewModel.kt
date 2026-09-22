@@ -80,10 +80,9 @@ class CourseViewModel @Inject constructor(
         credit: Int,
         components: List<CourseComponentDto>,
         gradeScale: List<GradeBandDto>?,
-        onResult: (Boolean) -> Unit = {}
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
     ) {
         viewModelScope.launch {
-
             runCatching {
                 repository.createCourse(
                     CreateCourseRequest(
@@ -96,10 +95,9 @@ class CourseViewModel @Inject constructor(
                 )
             }.onSuccess {
                 refresh()
-                onResult(true)
+                onResult(true, null)
             }.onFailure {
-                _errorMessage.value = it.message
-                onResult(false)
+                onResult(false, it.message)
             }
         }
     }
@@ -110,10 +108,9 @@ class CourseViewModel @Inject constructor(
         credit: Int,
         components: List<CourseComponentDto>,
         gradeScale: List<GradeBandDto>?,
-        onResult: (Boolean) -> Unit = {}
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
     ) {
         viewModelScope.launch {
-
             runCatching {
                 repository.updateCourse(
                     id,
@@ -126,10 +123,9 @@ class CourseViewModel @Inject constructor(
                 )
             }.onSuccess {
                 refresh()
-                onResult(true)
+                onResult(true, null)
             }.onFailure {
-                _errorMessage.value = it.message
-                onResult(false)
+                onResult(false, it.message)
             }
         }
     }

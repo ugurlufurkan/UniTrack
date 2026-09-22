@@ -22,8 +22,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
@@ -31,6 +36,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -102,30 +108,32 @@ fun CourseAttendanceScreen(
             )
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = Spacing.screenHorizontal)
-        ) {
-            when (val state = courseState) {
-                is CourseAttendanceUiState.Loading -> ListSkeleton()
-                is CourseAttendanceUiState.Error -> ErrorState(
-                    message = state.message,
-                    onRetry = { viewModel.clearCourseError(courseId) }
-                )
-                is CourseAttendanceUiState.Success -> CourseDetailContent(
-                    detail = state.detail,
-                    isSaving = isSaving,
-                    onMarkWeek = { weekNumber, attended, absent, excused, existingDate ->
-                        viewModel.markWeekHours(
-                            courseId, weekNumber, attended, absent, excused, existingDate
-                        )
-                    },
-                    onDeleteRecord = { recordId ->
-                        viewModel.deleteRecord(courseId, recordId)
-                    }
-                )
+        CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = Spacing.screenHorizontal)
+            ) {
+                when (val state = courseState) {
+                    is CourseAttendanceUiState.Loading -> ListSkeleton()
+                    is CourseAttendanceUiState.Error -> ErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.clearCourseError(courseId) }
+                    )
+                    is CourseAttendanceUiState.Success -> CourseDetailContent(
+                        detail = state.detail,
+                        isSaving = isSaving,
+                        onMarkWeek = { weekNumber, attended, absent, excused, existingDate ->
+                            viewModel.markWeekHours(
+                                courseId, weekNumber, attended, absent, excused, existingDate
+                            )
+                        },
+                        onDeleteRecord = { recordId ->
+                            viewModel.deleteRecord(courseId, recordId)
+                        }
+                    )
+                }
             }
         }
     }
@@ -174,16 +182,16 @@ private fun CourseDetailContent(
         }
         items((1..detail.totalWeeks).toList()) { week ->
             val record = recordsByWeek[week]
-            WeekRow(
-                weekNumber = week,
-                weeklyHours = detail.weeklyHours,
-                record = record,
-                isSaving = isSaving,
-                onMark = { attended, absent, excused ->
-                    onMarkWeek(week, attended, absent, excused, record?.date)
-                },
-                onDelete = record?.let { r -> { onDeleteRecord(r.id) } }
-            )
+                WeekRow(
+                    weekNumber = week,
+                    weeklyHours = detail.weeklyHours,
+                    record = record,
+                    isSaving = isSaving,
+                    onMark = { attended, absent, excused, updatedDate ->
+                        onMarkWeek(week, attended, absent, excused, updatedDate ?: record?.date)
+                    },
+                    onDelete = record?.let { r -> { onDeleteRecord(r.id) } }
+                )
         }
         item { Spacer(Modifier.height(Spacing.lg)) }
     }
@@ -191,9 +199,17 @@ private fun CourseDetailContent(
 
 @Composable
 private fun CourseStatusCard(detail: AttendanceCourseDetailDto) {
-    val warningColor = MaterialTheme.colorScheme.error
+    val errorColor = MaterialTheme.colorScheme.error
+    val yellowWarningColor = Color(0xFFD69E2E) // Visible dark yellow
     val safeColor = MaterialTheme.colorScheme.tertiary
-    val accentColor = if (detail.isAtRisk) warningColor else safeColor
+    
+    val badgeColor = when {
+        detail.absentHours > detail.attendanceLimitHours -> errorColor
+        detail.absentHours == detail.attendanceLimitHours -> yellowWarningColor
+        else -> errorColor
+    }
+    
+    val accentColor = if (detail.isAtRisk) badgeColor else safeColor
     val hasLimit = detail.attendanceLimitHours > 0
 
     GlassCard {
@@ -204,20 +220,25 @@ private fun CourseStatusCard(detail: AttendanceCourseDetailDto) {
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(999.dp))
-                        .background(warningColor.copy(alpha = 0.15f))
+                        .background(badgeColor.copy(alpha = 0.15f))
                         .padding(horizontal = 10.dp, vertical = 4.dp)
                 ) {
                     Icon(
                         Icons.Filled.Warning,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
-                        tint = warningColor
+                        tint = badgeColor
                     )
                     Spacer(Modifier.width(4.dp))
+                    val warningText = when {
+                        detail.absentHours == detail.attendanceLimitHours -> "Sınırda: Hakkınız Doldu"
+                        detail.absentHours > detail.attendanceLimitHours -> "Kritik: Devamsızlık Sınırını Aştınız!"
+                        else -> "⚠️ Devamsızlık riski!"
+                    }
                     Text(
-                        "⚠️ Devamsızlık riski — limit aşıldı!",
+                        text = warningText,
                         style = MaterialTheme.typography.labelSmall,
-                        color = warningColor,
+                        color = badgeColor,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -253,10 +274,12 @@ private fun CourseStatusCard(detail: AttendanceCourseDetailDto) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = if (hasLimit) "${detail.remainingAllowedHours} sa" else "—",
+                        text = if (hasLimit) "${detail.remainingAllowedHours} sa" else "∞",
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (hasLimit && (detail.remainingAllowedHours ?: 0) <= detail.weeklyHours) warningColor else safeColor
+                        color = if (hasLimit && (detail.remainingAllowedHours ?: 0) <= detail.weeklyHours) {
+                            if (detail.absentHours >= detail.attendanceLimitHours) badgeColor else errorColor
+                        } else safeColor
                     )
                     Text(
                         text = "toplam ${detail.totalCourseHours} sa ders",
@@ -267,13 +290,12 @@ private fun CourseStatusCard(detail: AttendanceCourseDetailDto) {
             }
 
             Spacer(Modifier.height(Spacing.md))
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 MiniStat("Katıldı", detail.attendedHours, safeColor)
-                MiniStat("Devamsız", detail.absentHours, warningColor)
+                MiniStat("Devamsız", detail.absentHours, errorColor)
                 MiniStat("İzinli", detail.excusedHours, MaterialTheme.colorScheme.secondary)
                 MiniStat("İşaretsiz hafta", detail.unmarkedWeeks, MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -303,30 +325,62 @@ private fun MiniStat(label: String, value: Int, color: androidx.compose.ui.graph
  * katıldı / katılmadı / izinli olarak saat bazında paylaştırır.
  * Örn. Mat1 haftada 4 saatse: 2 katıldı + 1 katılmadı + 1 izinli gibi.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WeekRow(
     weekNumber: Int,
     weeklyHours: Int,
     record: AttendanceRecordDto?,
     isSaving: Boolean,
-    onMark: (attended: Int, absent: Int, excused: Int) -> Unit,
+    onMark: (attended: Int, absent: Int, excused: Int, date: String?) -> Unit,
     onDelete: (() -> Unit)?
 ) {
     val safeColor = MaterialTheme.colorScheme.tertiary
     val warningColor = MaterialTheme.colorScheme.error
     val secondaryColor = MaterialTheme.colorScheme.secondary
 
-    var attended by remember(record?.id, weekNumber) { mutableIntStateOf(record?.attendedHours ?: weeklyHours) }
+    var attended by remember(record?.id, weekNumber) { mutableIntStateOf(record?.attendedHours ?: 0) }
     var absent by remember(record?.id, weekNumber) { mutableIntStateOf(record?.absentHours ?: 0) }
     var excused by remember(record?.id, weekNumber) { mutableIntStateOf(record?.excusedHours ?: 0) }
 
+    var showDatePicker by remember { mutableStateOf(false) }
+    var selectedDate by remember(record?.id, weekNumber) { mutableStateOf(record?.date) }
+
     val marked = record != null
-    val dateLabel = record?.date?.let {
+    val dateLabel = selectedDate?.let {
         runCatching {
             val instant = java.time.Instant.parse(it)
             val ld = instant.atZone(java.time.ZoneId.systemDefault()).toLocalDate()
-            ld.format(DateTimeFormatter.ofPattern("d MMM", Locale("tr")))
+            ld.format(java.time.format.DateTimeFormatter.ofPattern("d MMM", java.util.Locale("tr")))
         }.getOrNull()
+    }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = runCatching {
+                selectedDate?.let { java.time.Instant.parse(it).toEpochMilli() }
+            }.getOrNull() ?: System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val dateString = java.time.Instant.ofEpochMilli(millis).toString()
+                        selectedDate = dateString
+                        if (marked) { // Automatically save if record already exists
+                            onMark(attended, absent, excused, dateString)
+                        }
+                    }
+                    showDatePicker = false
+                }) { Text("Tamam") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("İptal") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
     }
 
     // Girilen saatler weeklyHours'u geçmesin — fazlasını otomatik kırp
@@ -346,11 +400,25 @@ private fun WeekRow(
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    if (dateLabel != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .clickable { showDatePicker = true }
+                            .padding(vertical = 2.dp)
+                    ) {
                         Text(
-                            text = dateLabel,
+                            text = dateLabel ?: "Tarih Seç",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.primary,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "Tarihi Düzenle",
+                            modifier = Modifier.size(12.dp),
+                            tint = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -386,7 +454,7 @@ private fun WeekRow(
                     modifier = Modifier.weight(1f),
                     onValueChange = {
                         attended = clamp(it, absent + excused)
-                        onMark(attended, absent, excused)
+                        onMark(attended, absent, excused, selectedDate)
                     }
                 )
                 HourStepper(
@@ -397,7 +465,7 @@ private fun WeekRow(
                     modifier = Modifier.weight(1f),
                     onValueChange = {
                         absent = clamp(it, attended + excused)
-                        onMark(attended, absent, excused)
+                        onMark(attended, absent, excused, selectedDate)
                     }
                 )
                 HourStepper(
@@ -408,7 +476,7 @@ private fun WeekRow(
                     modifier = Modifier.weight(1f),
                     onValueChange = {
                         excused = clamp(it, attended + absent)
-                        onMark(attended, absent, excused)
+                        onMark(attended, absent, excused, selectedDate)
                     }
                 )
                 if (record != null && onDelete != null) {
