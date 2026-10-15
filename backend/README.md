@@ -81,6 +81,8 @@ Migration'lar sunucu başlarken otomatik çalıştırılmaz; yayın adımında a
 
 PDF içe aktarma en fazla 10 MB PDF kabul eder. Farklı üniversite biçimlerinde sonuç değişebilir; kullanıcı kaydetmeden önce önizlemeyi düzenleyip onaylar.
 
+İçe aktarma, hesap satırı kilidiyle sunucular arasında sıralanan tek bir transaction kullanır. Bir ders kaydedilemezse yeni dönemler dahil tüm aktarım geri alınır. Aynı dönemde normalize edilmiş adı eşleşen mevcut dersler değiştirilmeden atlanır; sonuç `importedCourses` ve `skippedCourses` sayılarını içerir. Farklı dönemlerdeki tekrar alınan dersler ayrı tutulur.
+
 ## Web ve e-posta bağlantısı
 
 [Web kurulumundaki](../web/README.md) `API_URL`, bu API'nin `/api/v1` adresini göstermelidir. Backend'in `FRONTEND_URL` değeri ise web portalının adresidir. Next.js, öğrenci isteklerini sunucu üzerinden iletir; öğrenci token'ları backend tarafından doğrulanır.

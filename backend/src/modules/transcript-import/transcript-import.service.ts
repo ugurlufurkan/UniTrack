@@ -9,8 +9,10 @@ import {
   ParsedSemester,
 } from "./transcript-import.parser";
 
-import * as semesterRepository from "../semester/semester.repository";
-import * as courseRepository from "../course/course.repository";
+import { and, eq } from "drizzle-orm";
+import { db } from "../../db";
+import { users, semesters as semesterTable, courses, courseComponents } from "../../db/schema";
+import { calculateGrade } from "../../shared/utils/grade.util";
 import { AppError } from "../../shared/errors/AppError";
 import { env } from "../../config/env";
 
@@ -100,50 +102,42 @@ export const importSemesters = async (
   userId: string,
   semesters: ImportSemesterInput[]
 ) => {
-  const createdCourses: { semesterYear: number; semesterTerm: string; courseName: string }[] = [];
+  return db.transaction(async (tx) => {
+    // Serialize imports for this account across every API instance. A failed
+    // course rolls the entire import back, including newly created semesters.
+    const [owner] = await tx.select({ id: users.id }).from(users)
+      .where(eq(users.id, userId)).for("update");
+    if (!owner) throw AppError.unauthorized("Öğrenci hesabı bulunamadı.");
+    let importedSemesters = 0;
+    let importedCourses = 0;
+    let skippedCourses = 0;
+    const normalize = (name: string) => name.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("tr-TR");
 
-  for (const sem of semesters) {
-    let semesterId: string;
-
-    const existing = await semesterRepository.exists(userId, sem.year, sem.term);
-
-    if (existing) {
-      const all = await semesterRepository.findAll(userId);
-      const match = all.find((s) => s.year === sem.year && s.term === sem.term);
-      semesterId = match!.id;
-    } else {
-      // Repository fonksiyonunu bozmadan orijinal haliyle (sadece 3 parametre ile) çağırıyoruz:
-      const created = await semesterRepository.create(userId, sem.year, sem.term);
-      semesterId = created.id;
+    for (const sem of semesters) {
+      let [semester] = await tx.select().from(semesterTable).where(and(
+        eq(semesterTable.userId, userId), eq(semesterTable.year, sem.year), eq(semesterTable.term, sem.term),
+      )).limit(1);
+      if (!semester) {
+        [semester] = await tx.insert(semesterTable).values({ userId, year: sem.year, term: sem.term }).returning();
+        importedSemesters++;
+      }
+      const existing = await tx.select({ name: courses.name }).from(courses).where(eq(courses.semesterId, semester.id));
+      const names = new Set(existing.map(course => normalize(course.name)));
+      for (const course of sem.courses) {
+        const key = normalize(course.name);
+        // Preserve existing/manual grades rather than silently overwriting them.
+        if (names.has(key)) { skippedCourses++; continue; }
+        const score = gradeToScore(course.grade);
+        const grade = calculateGrade([{ weight: 100, score }], [...TRANSCRIPT_GRADE_SCALE]);
+        const [created] = await tx.insert(courses).values({
+          semesterId: semester.id, name: course.name.trim(), credit: course.credit,
+          gradeScale: [...TRANSCRIPT_GRADE_SCALE], ...grade,
+        }).returning({ id: courses.id });
+        await tx.insert(courseComponents).values({ courseId: created.id, name: "Dönem Sonu Notu", weight: 100, score, sortOrder: 0 });
+        names.add(key);
+        importedCourses++;
+      }
     }
-
-    for (const course of sem.courses) {
-      const score = gradeToScore(course.grade);
-
-      await courseRepository.create(userId, {
-        semesterId,
-        name: course.name,
-        credit: course.credit,
-        gradeScale: [...TRANSCRIPT_GRADE_SCALE],
-        components: [
-          {
-            name: "Dönem Sonu Notu",
-            weight: 100,
-            score,
-          },
-        ],
-      });
-
-      createdCourses.push({
-        semesterYear: sem.year,
-        semesterTerm: sem.term,
-        courseName: course.name,
-      });
-    }
-  }
-
-  return {
-    importedSemesters: semesters.length,
-    importedCourses: createdCourses.length,
-  };
+    return { importedSemesters, importedCourses, skippedCourses };
+  });
 };

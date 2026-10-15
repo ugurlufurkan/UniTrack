@@ -189,18 +189,23 @@ function ImportTranscript({ onClose }: { onClose: () => void }) {
           onSave={async () => {
             if (!preview.some((s) => s.courses.length))
               throw new Error('Aktarılacak en az bir ders olmalı.');
-            await api('transcript-import/import', {
-              method: 'POST',
-              body: json({ semesters: preview.filter((s) => s.courses.length) }),
-            });
+            const result = await api<{ importedCourses: number; skippedCourses: number }>(
+              'transcript-import/import',
+              {
+                method: 'POST',
+                body: json({ semesters: preview.filter((s) => s.courses.length) }),
+              },
+            );
             reload();
-            notify('Transkript hesabına aktarıldı.');
+            notify(
+              `${result.importedCourses} ders aktarıldı. ${result.skippedCourses || 0} mevcut ders korundu.`,
+            );
             onClose();
           }}
         >
           <p className="notice">
-            Ders adlarını, kredileri ve harf notlarını kontrol et. Aynı dersleri yeniden aktarmamaya
-            dikkat et; içe aktarma mevcut derslerini değiştirmez.
+            Ders adlarını, kredileri ve harf notlarını kontrol et. Aynı dönemde aynı ada sahip
+            mevcut dersler korunur ve yeniden eklenmez. Aktarımın tamamı başarılı olursa kaydedilir.
           </p>
           {preview.map((semester, si) => (
             <section className="import-semester" key={si}>
