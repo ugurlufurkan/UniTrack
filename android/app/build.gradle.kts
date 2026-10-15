@@ -60,7 +60,7 @@ android {
         debug {
             // Emulator'ın host makineye baktığı özel adres — sadece debug'da.
             buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:5000/api/v1/\"")
-            // TODO: admin-panel'i deploy edince gerçek domain ile değiştir.
+            // Yerel web öğrenci portalı.
             buildConfigField("String", "WEB_BASE_URL", "\"http://10.0.2.2:3000\"")
         }
         release {
@@ -76,9 +76,9 @@ android {
             // TODO: backend prod'a deploy edilince gerçek domain ile değiştir.
             // Bu bir sır değil (public API adresi), o yüzden burada sabit kalabilir.
             buildConfigField("String", "BASE_URL", "\"https://api.unitrack.app/api/v1/\"")
-            // admin-panel'in yayınlandığı domain — Ayarlar ekranındaki "Gizlilik
+            // Web öğrenci portalının domain'i — Ayarlar ekranındaki "Gizlilik
             // Politikası" / "Hesabımı Sil (web)" linkleri buraya /legal/... ekleyerek
-            // açılıyor (bkz. util/AppLinks.kt). admin-panel deploy edilince güncelle.
+            // açılıyor (bkz. util/AppLinks.kt). Web domain'i değişirse güncelle.
             buildConfigField("String", "WEB_BASE_URL", "\"https://unitrack.app\"")
         }
     }

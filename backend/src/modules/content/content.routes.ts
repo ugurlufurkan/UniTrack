@@ -5,15 +5,14 @@ import { authMiddleware } from "../../shared/middleware/auth.middleware";
 
 const router = Router();
 
-// Bu içerik admin panelinden (Next.js, ayrı uygulama) yönetiliyor; burası
-// sadece mobil uygulamanın OKUMASI için. Kullanıcı girişli olsun diye
-// authMiddleware'i koruduk (API'nin geri kalanıyla tutarlı olsun diye),
-// ama içeriğin kendisi kullanıcıya özel değil, herkese aynı.
+// Yasal metinler uygulama kurulmadan ve giriş yapılmadan da erişilebilir.
+router.get("/pages/:slug", getPage);
+
+// Mevcut içerik hem Android hem web istemcisi tarafından okunur.
 router.use(authMiddleware);
 
 router.get("/announcements", getAnnouncements);
 router.get("/faqs", getFaqs);
 router.get("/tips", getTips);
-router.get("/pages/:slug", getPage);
 
 export default router;

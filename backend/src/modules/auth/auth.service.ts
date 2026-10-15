@@ -6,8 +6,18 @@ import {
 } from "../../lib/jwt";
 import { authRepository } from "./auth.repository";
 import { AppError } from "../../shared/errors/AppError";
-import { createAuditLog, extractDeviceInfo, detectDeviceType, generateDeviceName } from "../../lib/audit";
-import { hashPassword, comparePassword, validatePasswordStrength, isValidEmail } from "../../lib/password";
+import {
+  createAuditLog,
+  extractDeviceInfo,
+  detectDeviceType,
+  generateDeviceName,
+} from "../../lib/audit";
+import {
+  hashPassword,
+  comparePassword,
+  validatePasswordStrength,
+  isValidEmail,
+} from "../../lib/password";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../../lib/email";
 import { Request } from "express";
 import { randomBytes } from "crypto";
@@ -48,19 +58,34 @@ class AuthService {
       throw AppError.unauthorized("Google token doğrulanamadı.");
     }
 
-    if (!payload) {
+    if (!payload || !payload.email || payload.email_verified !== true) {
       throw AppError.unauthorized("Google doğrulanamadı.");
     }
 
     let user = await authRepository.findByGoogleId(payload.sub);
 
     if (!user) {
-      user = await authRepository.createUser({
-        googleId: payload.sub,
-        email: payload.email!,
-        name: payload.name!,
-        picture: payload.picture,
-      });
+      const existing = await authRepository.findByEmail(payload.email);
+      if (existing) {
+        if (existing.googleId && existing.googleId !== payload.sub)
+          throw AppError.unauthorized(
+            "Bu e-posta farklı bir Google hesabına bağlı.",
+          );
+        user = await authRepository.updateUser(existing.id, {
+          googleId: payload.sub,
+          isEmailVerified: true,
+        });
+      } else {
+        user = await authRepository.createUser({
+          googleId: payload.sub,
+          email: payload.email.toLowerCase(),
+          name: (payload.name || payload.email.split("@")[0]).slice(0, 100),
+          picture: payload.picture,
+        });
+        user = await authRepository.updateUser(user.id, {
+          isEmailVerified: true,
+        });
+      }
     }
 
     const deviceInfo = req ? this.extractDeviceInfo(req) : undefined;
@@ -78,7 +103,7 @@ class AuthService {
       user.id,
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      deviceInfo
+      deviceInfo,
     );
 
     await createAuditLog({
@@ -157,7 +182,7 @@ class AuthService {
       user.id,
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      deviceInfo
+      deviceInfo,
     );
 
     await createAuditLog({
@@ -180,11 +205,14 @@ class AuthService {
     };
   }
 
-  async register(data: {
-    email: string;
-    password: string;
-    name: string;
-  }, req?: Request) {
+  async register(
+    data: {
+      email: string;
+      password: string;
+      name: string;
+    },
+    req?: Request,
+  ) {
     const { email, password, name } = data;
 
     if (!email || !password || !name) {
@@ -198,7 +226,7 @@ class AuthService {
     const passwordStrength = validatePasswordStrength(password);
     if (!passwordStrength.isValid) {
       throw AppError.badRequest(
-        `Şifre yetersiz: ${passwordStrength.feedback.join(", ")}`
+        `Şifre yetersiz: ${passwordStrength.feedback.join(", ")}`,
       );
     }
 
@@ -230,7 +258,7 @@ class AuthService {
       user.id,
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      deviceInfo
+      deviceInfo,
     );
 
     await createAuditLog({
@@ -283,7 +311,9 @@ class AuthService {
         method: req?.method,
         path: req?.path,
       });
-      throw AppError.unauthorized("Güvenlik nedeniyle tüm oturumlar sonlandırıldı.");
+      throw AppError.unauthorized(
+        "Güvenlik nedeniyle tüm oturumlar sonlandırıldı.",
+      );
     }
 
     if (token.expiresAt.getTime() < Date.now()) {
@@ -302,16 +332,18 @@ class AuthService {
       userId: token.user.id,
     });
 
-    // Revoke old token and mark as replaced
-    await authRepository.revokeRefreshToken(refreshToken, newRefreshToken);
-
-    // Save new token
-    await authRepository.saveRefreshToken(
+    // Claim and replace atomically; concurrent refreshes cannot both consume it.
+    const rotated = await authRepository.rotateRefreshToken(
       token.user.id,
+      refreshToken,
       newRefreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
-      deviceInfo
+      deviceInfo,
     );
+    if (!rotated)
+      throw AppError.unauthorized(
+        "Oturum yenilenemedi. Lütfen tekrar giriş yap.",
+      );
 
     await createAuditLog({
       userId: token.user.id,
@@ -398,7 +430,10 @@ class AuthService {
   }
 
   async logoutDevice(userId: string, tokenId: string, req?: Request) {
-    const affected = await authRepository.revokeRefreshTokenById(userId, tokenId);
+    const affected = await authRepository.revokeRefreshTokenById(
+      userId,
+      tokenId,
+    );
 
     if (affected === 0) {
       throw AppError.notFound("Cihaz oturumu bulunamadı.");
@@ -475,14 +510,17 @@ class AuthService {
       throw AppError.badRequest("Geçersiz veya süresi dolmuş token.");
     }
 
-    if (user.emailVerificationExpiresAt && user.emailVerificationExpiresAt < new Date()) {
+    if (
+      !user.emailVerificationExpiresAt ||
+      user.emailVerificationExpiresAt < new Date()
+    ) {
       throw AppError.badRequest("Token süresi dolmuş.");
     }
 
     await authRepository.updateUser(user.id, {
       isEmailVerified: true,
-      emailVerificationToken: undefined,
-      emailVerificationExpiresAt: undefined,
+      emailVerificationToken: null,
+      emailVerificationExpiresAt: null,
     });
 
     await createAuditLog({
@@ -505,7 +543,8 @@ class AuthService {
       // Don't reveal if email exists
       return {
         success: true,
-        message: "Eğer email kayıtlıysa, şifre sıfırlama linki gönderilecektir.",
+        message:
+          "Eğer email kayıtlıysa, şifre sıfırlama linki gönderilecektir.",
       };
     }
 
@@ -539,14 +578,17 @@ class AuthService {
       throw AppError.badRequest("Geçersiz veya süresi dolmuş token.");
     }
 
-    if (user.passwordResetExpiresAt && user.passwordResetExpiresAt < new Date()) {
+    if (
+      !user.passwordResetExpiresAt ||
+      user.passwordResetExpiresAt < new Date()
+    ) {
       throw AppError.badRequest("Token süresi dolmuş.");
     }
 
     const passwordStrength = validatePasswordStrength(newPassword);
     if (!passwordStrength.isValid) {
       throw AppError.badRequest(
-        `Şifre yetersiz: ${passwordStrength.feedback.join(", ")}`
+        `Şifre yetersiz: ${passwordStrength.feedback.join(", ")}`,
       );
     }
 
@@ -554,8 +596,8 @@ class AuthService {
 
     await authRepository.updateUser(user.id, {
       password: hashedPassword,
-      passwordResetToken: undefined,
-      passwordResetExpiresAt: undefined,
+      passwordResetToken: null,
+      passwordResetExpiresAt: null,
     });
 
     // Revoke all refresh tokens for security
@@ -574,14 +616,21 @@ class AuthService {
     };
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ) {
     const user = await authRepository.findById(userId);
 
     if (!user || !user.password) {
       throw AppError.badRequest("Kullanıcı bulunamadı veya şifre yok.");
     }
 
-    const isPasswordValid = await comparePassword(currentPassword, user.password);
+    const isPasswordValid = await comparePassword(
+      currentPassword,
+      user.password,
+    );
 
     if (!isPasswordValid) {
       throw AppError.unauthorized("Mevcut şifre hatalı.");
@@ -590,7 +639,7 @@ class AuthService {
     const passwordStrength = validatePasswordStrength(newPassword);
     if (!passwordStrength.isValid) {
       throw AppError.badRequest(
-        `Şifre yetersiz: ${passwordStrength.feedback.join(", ")}`
+        `Şifre yetersiz: ${passwordStrength.feedback.join(", ")}`,
       );
     }
 

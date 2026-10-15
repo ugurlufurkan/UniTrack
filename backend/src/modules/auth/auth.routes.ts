@@ -1,28 +1,31 @@
 import { Router } from "express";
 import { authController } from "./auth.controller";
 import { authMiddleware } from "../../shared/middleware/auth.middleware";
+import { validate } from "../../shared/middleware/validate.middleware";
+import { authRateLimiter, passwordResetRateLimiter } from "../../shared/middleware/rateLimiter.middleware";
+import { changePasswordSchema, forgotPasswordSchema, googleLoginSchema, loginSchema, refreshSchema, registerSchema, resetPasswordSchema, verifyEmailSchema } from "./auth.validator";
 
 const router = Router();
 
 // Authentication
-router.post("/google", (req, res) =>
+router.post("/google", authRateLimiter, validate(googleLoginSchema), (req, res) =>
   authController.googleLogin(req, res)
 );
 
-router.post("/login", (req, res) =>
+router.post("/login", authRateLimiter, validate(loginSchema), (req, res) =>
   authController.emailPasswordLogin(req, res)
 );
 
-router.post("/register", (req, res) =>
+router.post("/register", authRateLimiter, validate(registerSchema), (req, res) =>
   authController.register(req, res)
 );
 
 // Token management
-router.post("/refresh", (req, res) =>
+router.post("/refresh", validate(refreshSchema), (req, res) =>
   authController.refresh(req, res)
 );
 
-router.post("/logout", (req, res) =>
+router.post("/logout", validate(refreshSchema), (req, res) =>
   authController.logout(req, res)
 );
 
@@ -48,25 +51,28 @@ router.get(
 router.post(
   "/verify-email/request",
   authMiddleware,
+  passwordResetRateLimiter,
   (req, res) => authController.requestEmailVerification(req, res)
 );
 
-router.post("/verify-email", (req, res) =>
+router.post("/verify-email", validate(verifyEmailSchema), (req, res) =>
   authController.verifyEmail(req, res)
 );
 
 // Password management
-router.post("/forgot-password", (req, res) =>
+router.post("/forgot-password", passwordResetRateLimiter, validate(forgotPasswordSchema), (req, res) =>
   authController.forgotPassword(req, res)
 );
 
-router.post("/reset-password", (req, res) =>
+router.post("/reset-password", passwordResetRateLimiter, validate(resetPasswordSchema), (req, res) =>
   authController.resetPassword(req, res)
 );
 
 router.post(
   "/change-password",
   authMiddleware,
+  passwordResetRateLimiter,
+  validate(changePasswordSchema),
   (req, res) => authController.changePassword(req, res)
 );
 
@@ -77,9 +83,7 @@ router.get(
   (req, res) => authController.me(req, res)
 );
 
-// Google Play "hesap silme" şartı — Android Ayarlar > Hesabımı Sil ve
-// admin-panel/app/legal/delete-account bu adrese değil (o sadece talebi
-// admin panelde kaydediyor), doğrudan bu uygulama-içi rotaya gidiyor.
+// Android ve web portalı, doğrulanmış öğrenci oturumuyla aynı silme işlemini kullanır.
 router.delete(
   "/me",
   authMiddleware,

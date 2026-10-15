@@ -1,10 +1,11 @@
 import { z } from "zod";
 
 const hoursField = z.number().int().min(0).max(24);
+const dateField = z.string().min(1, "Tarih zorunludur.").refine(value => !Number.isNaN(Date.parse(value)), "Geçerli bir tarih gir.");
 
 export const upsertAttendanceRecordSchema = z.object({
   weekNumber: z.number().int().min(1).max(52),
-  date: z.string().min(1, "Tarih zorunludur."),
+  date: dateField,
   attendedHours: hoursField.default(0),
   absentHours: hoursField.default(0),
   excusedHours: hoursField.default(0),
@@ -12,7 +13,7 @@ export const upsertAttendanceRecordSchema = z.object({
 });
 
 export const updateAttendanceRecordSchema = z.object({
-  date: z.string().min(1).optional(),
+  date: dateField.optional(),
   attendedHours: hoursField.optional(),
   absentHours: hoursField.optional(),
   excusedHours: hoursField.optional(),

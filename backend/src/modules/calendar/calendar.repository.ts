@@ -17,7 +17,7 @@ import {
 import { AppError } from "../../shared/errors/AppError";
 
 const attachNotifications = async (
-  eventRows: (typeof events.$inferSelect)[]
+  eventRows: (typeof events.$inferSelect)[],
 ) => {
   if (!eventRows.length) return [];
 
@@ -56,7 +56,7 @@ const verifyCourseOwnership = async (userId: string, courseId: string) => {
 
 export const findAllEvents = async (
   userId: string,
-  filters?: { startDate?: string; endDate?: string; type?: string }
+  filters?: { startDate?: string; endDate?: string; type?: string },
 ) => {
   const conditions = [eq(events.userId, userId)];
 
@@ -104,11 +104,8 @@ export const findUpcomingEvents = async (userId: string, limit = 20) => {
       and(
         eq(events.userId, userId),
         gte(events.startAt, now),
-        or(
-          eq(events.status, "pending"),
-          eq(events.status, "in_progress")
-        )
-      )
+        or(eq(events.status, "pending"), eq(events.status, "in_progress")),
+      ),
     )
     .orderBy(asc(events.startAt))
     .limit(limit);
@@ -152,7 +149,7 @@ export const createEvent = async (userId: string, data: CreateEventDto) => {
             daysBefore: n.daysBefore,
             hoursBefore: n.hoursBefore,
             minutesBefore: n.minutesBefore,
-          }))
+          })),
         )
         .returning();
     }
@@ -164,7 +161,7 @@ export const createEvent = async (userId: string, data: CreateEventDto) => {
 export const updateEvent = async (
   userId: string,
   eventId: string,
-  data: UpdateEventDto
+  data: UpdateEventDto,
 ) => {
   const existing = await db
     .select()
@@ -177,6 +174,16 @@ export const updateEvent = async (
   }
 
   const current = existing[0];
+
+  const startAt = data.startAt ? new Date(data.startAt) : current.startAt;
+  const endAt =
+    data.endAt === undefined
+      ? current.endAt
+      : data.endAt
+        ? new Date(data.endAt)
+        : null;
+  if (endAt && endAt < startAt)
+    throw AppError.badRequest("Bitiş zamanı başlangıçtan önce olamaz.");
 
   if (data.courseId) {
     await verifyCourseOwnership(userId, data.courseId);
@@ -233,7 +240,7 @@ export const updateEvent = async (
               daysBefore: n.daysBefore,
               hoursBefore: n.hoursBefore,
               minutesBefore: n.minutesBefore,
-            }))
+            })),
           )
           .returning();
       } else {
@@ -296,15 +303,15 @@ export const findTodaySchedule = async (userId: string) => {
     .where(
       and(
         eq(courseSchedule.userId, userId),
-        eq(courseSchedule.dayOfWeek, today)
-      )
+        eq(courseSchedule.dayOfWeek, today),
+      ),
     )
     .orderBy(asc(courseSchedule.startTime));
 };
 
 export const createSchedule = async (
   userId: string,
-  data: CreateScheduleDto
+  data: CreateScheduleDto,
 ) => {
   await verifyCourseOwnership(userId, data.courseId);
 
@@ -326,13 +333,13 @@ export const createSchedule = async (
 export const updateSchedule = async (
   userId: string,
   scheduleId: string,
-  data: UpdateScheduleDto
+  data: UpdateScheduleDto,
 ) => {
   const existing = await db
     .select()
     .from(courseSchedule)
     .where(
-      and(eq(courseSchedule.id, scheduleId), eq(courseSchedule.userId, userId))
+      and(eq(courseSchedule.id, scheduleId), eq(courseSchedule.userId, userId)),
     )
     .limit(1);
 
@@ -341,6 +348,12 @@ export const updateSchedule = async (
   }
 
   const current = existing[0];
+
+  if (
+    (data.endTime ?? current.endTime) <= (data.startTime ?? current.startTime)
+  ) {
+    throw AppError.badRequest("Bitiş saati başlangıçtan sonra olmalı.");
+  }
 
   if (data.courseId) {
     await verifyCourseOwnership(userId, data.courseId);
@@ -353,8 +366,7 @@ export const updateSchedule = async (
       dayOfWeek: data.dayOfWeek ?? current.dayOfWeek,
       startTime: data.startTime ?? current.startTime,
       endTime: data.endTime ?? current.endTime,
-      location:
-        data.location !== undefined ? data.location : current.location,
+      location: data.location !== undefined ? data.location : current.location,
     })
     .where(eq(courseSchedule.id, scheduleId))
     .returning();
@@ -367,7 +379,7 @@ export const removeSchedule = async (userId: string, scheduleId: string) => {
     .select()
     .from(courseSchedule)
     .where(
-      and(eq(courseSchedule.id, scheduleId), eq(courseSchedule.userId, userId))
+      and(eq(courseSchedule.id, scheduleId), eq(courseSchedule.userId, userId)),
     )
     .limit(1);
 
@@ -406,8 +418,8 @@ export const getCalendarSummary = async (userId: string) => {
         eq(events.userId, userId),
         eq(events.type, "exam"),
         gte(events.startAt, now),
-        or(eq(events.status, "pending"), eq(events.status, "in_progress"))
-      )
+        or(eq(events.status, "pending"), eq(events.status, "in_progress")),
+      ),
     )
     .orderBy(asc(events.startAt))
     .limit(5);
@@ -431,8 +443,8 @@ export const getCalendarSummary = async (userId: string) => {
         eq(events.userId, userId),
         inArray(events.type, ["assignment", "project", "quiz"]),
         gte(events.startAt, now),
-        or(eq(events.status, "pending"), eq(events.status, "in_progress"))
-      )
+        or(eq(events.status, "pending"), eq(events.status, "in_progress")),
+      ),
     )
     .orderBy(asc(events.startAt))
     .limit(5);
@@ -456,8 +468,8 @@ export const getCalendarSummary = async (userId: string) => {
         eq(events.userId, userId),
         inArray(events.type, ["assignment", "project", "quiz"]),
         lte(events.startAt, now),
-        or(eq(events.status, "pending"), eq(events.status, "in_progress"))
-      )
+        or(eq(events.status, "pending"), eq(events.status, "in_progress")),
+      ),
     )
     .orderBy(desc(events.startAt))
     .limit(5);
@@ -481,8 +493,8 @@ export const getCalendarSummary = async (userId: string) => {
         eq(events.userId, userId),
         eq(events.type, "lesson"),
         gte(events.startAt, todayStart),
-        lte(events.startAt, todayEnd)
-      )
+        lte(events.startAt, todayEnd),
+      ),
     )
     .orderBy(asc(events.startAt));
 

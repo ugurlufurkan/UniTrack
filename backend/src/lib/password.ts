@@ -22,31 +22,31 @@ export function validatePasswordStrength(password: string): PasswordStrengthResu
   let score = 0;
 
   if (password.length < 8) {
-    feedback.push("Password must be at least 8 characters long");
+    feedback.push("Şifre en az 8 karakter olmalı");
   } else {
     score += 1;
   }
 
   if (!/[A-Z]/.test(password)) {
-    feedback.push("Password must contain at least one uppercase letter");
+    feedback.push("En az bir büyük harf kullan");
   } else {
     score += 1;
   }
 
   if (!/[a-z]/.test(password)) {
-    feedback.push("Password must contain at least one lowercase letter");
+    feedback.push("En az bir küçük harf kullan");
   } else {
     score += 1;
   }
 
   if (!/[0-9]/.test(password)) {
-    feedback.push("Password must contain at least one number");
+    feedback.push("En az bir rakam kullan");
   } else {
     score += 1;
   }
 
   if (!/[^A-Za-z0-9]/.test(password)) {
-    feedback.push("Password must contain at least one special character");
+    feedback.push("En az bir özel karakter kullan");
   } else {
     score += 1;
   }
@@ -54,9 +54,10 @@ export function validatePasswordStrength(password: string): PasswordStrengthResu
   if (password.length > 12) {
     score += 1;
   }
+  if (Buffer.byteLength(password, 'utf8') > 72) feedback.push("Şifre UTF-8 olarak 72 baytı aşamaz");
 
   return {
-    isValid: score >= 4,
+    isValid: password.length >= 8 && Buffer.byteLength(password, 'utf8') <= 72 && score >= 4,
     score,
     feedback,
   };

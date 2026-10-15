@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import { authService } from "./auth.service";
+import { authRepository } from "./auth.repository";
+import { AppError } from "../../shared/errors/AppError";
 
 class AuthController {
   async googleLogin(req: Request, res: Response) {
@@ -109,9 +111,11 @@ class AuthController {
   }
 
   async me(req: Request, res: Response) {
+    const user = await authRepository.findById(req.user!.userId);
+    if (!user) throw AppError.unauthorized("Hesap bulunamadı. Lütfen tekrar giriş yap.");
     return res.status(200).json({
       success: true,
-      user: req.user,
+      user: { userId: user.id, email: user.email, name: user.name, isEmailVerified: user.isEmailVerified },
     });
   }
 

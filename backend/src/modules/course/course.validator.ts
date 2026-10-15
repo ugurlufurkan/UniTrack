@@ -3,7 +3,7 @@ import { gradeScaleSchema } from "../../shared/validation/gradeScale.schema";
 
 export const courseComponentSchema = z.object({
   id: z.string().uuid().nullable().optional(), // guncellemede mevcut bileseni esler
-  name: z.string()
+  name: z.string().trim()
     .min(1, "Bileşen adı boş bırakılamaz.")
     .max(100, "Bileşen adı çok uzun."),
   weight: z.number()
@@ -24,7 +24,7 @@ const componentsRefinement = (
 
 export const createCourseSchema = z.object({
   semesterId: z.string().uuid(),
-  name: z.string()
+  name: z.string().trim()
     .min(2, "Ders adı en az 2 karakter olmalıdır.")
     .max(150, "Ders adı çok uzun."),
   credit: z.number()
@@ -41,7 +41,7 @@ export const createCourseSchema = z.object({
 });
 
 export const updateCourseSchema = z.object({
-  name: z.string()
+  name: z.string().trim()
     .min(2, "Ders adı en az 2 karakter olmalıdır.")
     .max(150, "Ders adı çok uzun.")
     .optional(),

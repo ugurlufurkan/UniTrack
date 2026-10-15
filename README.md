@@ -1,40 +1,119 @@
-﻿# UniTrack
+# UniTrack
 
-Üniversite öğrencileri için ders, not, devamsızlık ve görev takibi yapan bir mobil uygulama. Android istemci, bir REST API backend'i ve bu ikisini besleyen bir içerik yönetim paneli olmak üzere üç parçadan oluşur.
+Üniversite hayatını tek yerden takip et: dersler, notlar, devamsızlık, görevler ve akademik takvim.
+
+UniTrack, Android uygulaması ve web öğrenci portalını ortak bir REST API üzerinde birleştirir. Aynı hesapla giriş yaparak iki platformda da derslerine ve akademik verilerine ulaşabilirsin.
+
+[Web portalı](./web/README.md) · [Backend kurulumu](./backend/README.md) · [Android kurulumu](./android/README.md)
+
+![UniTrack web öğrenci portalının masaüstü görünümü](./docs/images/student-portal-desktop.jpg)
+
+_Ekran görüntüsü örnek test verileriyle hazırlanmıştır. [Mobil web görünümü](./docs/images/student-portal-mobile.jpg)._
+
+## Özellikler
+
+| Alan                  | Neler yapabilirsin?                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Dersler ve notlar     | Dönemleri ve dersleri yönet; kredi, ağırlıklı not bileşenleri ve harf notu skalası tanımla.             |
+| Akademik planlama     | Haftalık ders programını, sınavlarını, etkinliklerini ve alt görevlerini takip et.                      |
+| Devamsızlık           | Katılım, devamsızlık ve mazeret kayıtlarını ders bazında sınırlarla izle.                               |
+| GANO ve istatistikler | Ortalamanı incele, olası notları simüle et ve dönemler arasındaki değişimi gör.                         |
+| Transkript            | PDF yükle, çıkarılan verileri gözden geçirip içe aktar; akademik özetini yazdır veya PDF olarak kaydet. |
+| Hesap yönetimi        | Şifreni ve oturumlarını yönet; verilerini JSON olarak indir veya hesabını sil.                          |
+| Web deneyimi          | Masaüstü ve mobil ekranlara uyumlu arayüz, açık/koyu tema, duyurular ve SSS.                            |
+
+E-posta ile kayıt/giriş, şifre sıfırlama ve e-posta doğrulama desteklenir. Google ile giriş için OAuth yapılandırması gerekir. PDF çözümleme desteklenen metin tabanlı belgelerle çalışır; içe aktarmadan önce önizlemeyi kontrol etmek gerekir.
 
 ## Proje yapısı
 
-| Klasör | Ne işe yarar | Teknoloji |
-|---|---|---|
-| [`android/`](./android) | Öğrencinin kullandığı mobil uygulama | Kotlin, Jetpack Compose, Hilt, Retrofit |
-| [`backend/`](./backend) | Mobil uygulamanın konuştuğu REST API | Node.js, Express, Drizzle ORM, PostgreSQL |
-| [`admin-panel/`](./admin-panel) | Duyuru/SSS/ipucu/statik sayfa içeriğini APK güncellemeden yönetme paneli | Next.js, better-auth, Drizzle ORM |
+| Klasör                | Sorumluluk                                  | Teknoloji                                      |
+| --------------------- | ------------------------------------------- | ---------------------------------------------- |
+| [android/](./android) | Android öğrenci uygulaması                  | Kotlin, Jetpack Compose, Hilt, Retrofit        |
+| [web/](./web)         | Web öğrenci portalı                         | Next.js 16, React 19, TypeScript               |
+| [backend/](./backend) | Ortak API, kimlik doğrulama ve veri erişimi | Express 5, TypeScript, Drizzle ORM, PostgreSQL |
 
-Backend ve admin panel **aynı PostgreSQL veritabanını** paylaşır (şu an [Neon](https://neon.tech) üzerinde barındırılıyor). Admin panel içerik yazar, backend onu mobil uygulamaya salt-okunur olarak sunar (`GET /api/v1/content/*`).
+```mermaid
+flowchart LR
+    Android[Android uygulaması] --> API[Express REST API /api/v1]
+    Browser[Web tarayıcısı] --> Next[Next.js sunucu katmanı]
+    Next --> API
+    API --> Database[(PostgreSQL)]
+```
 
-## Mimari
+Android doğrudan API'ye bağlanır. Web istekleri Next.js sunucusu üzerinden aynı API'ye iletilir; web katmanı veritabanına doğrudan bağlanmaz. Öğrenci verileri ortak hesaba bağlıdır. Web verileri sayfa geçişlerinde, kayıt işlemlerinden sonra ve sekmeye geri dönüldüğünde yenilenir.
 
-- **Android** uygulaması REST üzerinden **Backend**'e istek atar.
-- **Admin Panel** de aynı **Backend**'in arkasındaki veritabanına (Neon/PostgreSQL) doğrudan Drizzle ile yazar.
-- Backend, admin panelin yazdığı içeriği (duyuru, SSS, ipucu, statik sayfa) `GET /api/v1/content/*` üzerinden Android'e salt-okunur sunar.
-- Üçü de aynı PostgreSQL veritabanını (Neon) paylaşır; tek doğru veri kaynağı budur.
+## Hızlı başlangıç
 
-## Başlıca özellikler
+Node.js 22 veya üzeri, npm ve erişilebilir bir PostgreSQL veritabanı gerekir. Android geliştirme ortamı için [Android kurulumuna](./android/README.md) bak.
 
-- Dönem / ders / not takibi, GANO hesaplama ve simülasyonu
-- Devamsızlık takibi, ders programı, takvim ve hatırlatıcılar
-- Görev (task) yönetimi
-- Transkript PDF çıktısı
-- Hesap verilerini JSON olarak dışa aktarma ("verilerimi indir")
-- Tema / hedef GANO / sınav dönemi ayarlarının hesaba bağlı senkronizasyonu (telefon değişince kaybolmaz)
-- Admin panelden duyuru, SSS, ipucu ve statik sayfa (Hakkımızda, KVKK vb.) yönetimi
+```powershell
+git clone https://github.com/ugurlufurkan/UniTrack.git
+cd UniTrack
+```
 
-## Kurulum
+### 1. Backend
 
-Her alt klasörün kendi README'sinde detaylı kurulum adımları var:
+```powershell
+cd backend
+npm ci
+Copy-Item .env.example .env
+```
 
-1. [`backend/README.md`](./backend/README.md) — veritabanı, `.env`, migration
-2. [`admin-panel/README.md`](./admin-panel/README.md) — admin panel kurulumu, admin hesabı açma
-3. [`android/README.md`](./android/README.md) — Android Studio, emülatör/gerçek cihaz
+`.env` içindeki `DATABASE_URL`, birbirinden farklı `JWT_SECRET` / `JWT_REFRESH_SECRET` ve `GOOGLE_CLIENT_ID` değerlerini doldur. Mevcut backend yapılandırması Google istemci kimliğini başlangıçta zorunlu tutar. E-posta bağlantıları için `FRONTEND_URL=http://localhost:3000` kullan.
 
-Genel sıra: **önce backend, sonra admin panel, en son Android.**
+```powershell
+npm run db:migrate
+npm run dev
+```
+
+API: `http://localhost:5000/api/v1` · Sağlık kontrolü: `http://localhost:5000/api/health` · API dokümanı: `http://localhost:5000/api/docs`
+
+### 2. Web portalı
+
+Depo kökünden ikinci bir terminal aç:
+
+```powershell
+cd web
+npm ci
+Copy-Item .env.example .env.local
+npm run dev
+```
+
+`http://localhost:3000` adresini aç. Varsayılan `API_URL=http://127.0.0.1:5000/api/v1` yerel backend'e bağlanır. Google girişini göstermek için `NEXT_PUBLIC_GOOGLE_CLIENT_ID` değerini backend'deki `GOOGLE_CLIENT_ID` ile aynı web OAuth istemcisine ayarla.
+
+Komutlar PowerShell içindir; macOS/Linux üzerinde `Copy-Item` yerine `cp` kullanılabilir. Gerçek `.env` dosyaları depoya eklenmez; paylaşılabilir şablonlar ilgili klasörlerdeki `.env.example` dosyalarıdır.
+
+## Kontroller
+
+```powershell
+cd backend
+npm test
+cd ../web
+npm test
+npm run lint
+npm run typecheck
+npm run build
+npm run test:integration
+npm run format:check
+```
+
+Backend testleri TypeScript derlemesini ve izole regresyon kontrollerini çalıştırır. Web entegrasyon testi yerel bir test API'si ve Next.js üretim sunucusu açarak oturum, çerez, CSRF, kayıt işlemleri ve token yenilemeyi doğrular. Bu testler gerçek öğrenci verilerine bağlanmaz.
+
+Çalışan yerel backend ve yapılandırılmış PostgreSQL ile kabul kontrolü için `backend/` içinde:
+
+```powershell
+node scripts/smoke-api.mjs http://127.0.0.1:5000/api/v1
+```
+
+Bu kontrol geçici bir öğrenci hesabı oluşturur, API işlemlerini doğrular ve sonunda hesabı ilişkili verileriyle siler. Google OAuth, gerçek SMTP teslimatı ve farklı üniversitelerin PDF biçimleri ayrıca doğrulanmalıdır. Bağımlılık taramasındaki geliştirme aracı uyarısı [web belgesinde](./web/README.md#bağımlılık-taraması) açıklanır.
+
+## Yayına hazırlık ve admin panelinden geçiş
+
+- Eski `admin-panel/` kaldırıldı. Web hosting ve CI çalışma dizini `web/` olmalı; derleme `npm run build`, başlatma `npm start` komutuyla yapılır.
+- Web için HTTPS, erişilebilir bir `API_URL` ve backend için web adresini gösteren `FRONTEND_URL` tanımla. `NEXT_PUBLIC_*` değişiklikleri yeniden web derlemesi gerektirir.
+- Üretim e-postaları için backend SMTP ayarlarını yapılandır. Geliştirme ortamında e-postalar konsola yazılır.
+- Mevcut öğrenci ve içerik tabloları korunur. Eski `admin_*` ve hesap silme talebi tabloları bu geçişle otomatik olarak silinmez.
+- Duyurular, SSS ve yasal sayfalar mevcut API'den okunur; içerik düzenleme arayüzü kaldırıldı. `/legal/privacy` ve `/legal/terms` için `static_pages` kayıtları yayın veritabanında bulunmalıdır.
+- `/legal/delete-account` korunur. Öğrenci artık hesabını web ayarlarından silebilir; önceki admin onaylı bekleyen taleplerin ayrıca ele alınması gerekir.
+
+Ayrıntılı ortam değişkenleri, oturum güvenliği ve üretim notları: [web](./web/README.md) · [backend](./backend/README.md).

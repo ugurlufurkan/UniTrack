@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { createHash } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { env } from "../config/env";
 
 export interface AccessTokenPayload {
@@ -24,6 +24,7 @@ export function generateRefreshToken(
 ): string {
   return jwt.sign(payload, env.JWT_REFRESH_SECRET, {
     expiresIn: "30d",
+    jwtid: randomUUID(),
   });
 }
 

@@ -415,10 +415,9 @@ export const eventChecklistItems = pgTable("event_checklist_items", {
 });
 
 /* =========================
-   İÇERİK YÖNETİMİ (admin panelinden düzenlenir, APK güncellemesi
-   gerektirmez). Bu tablolar ayrıca admin-panel/ (Next.js + better-auth)
-   uygulaması tarafından da Drizzle ile doğrudan okunup yazılır — iki
-   uygulama da AYNI Postgres veritabanını paylaşır.
+   ORTAK İÇERİK (Android ve web tarafından salt okunur kullanılır).
+   Eski admin paneli kaldırıldı; mevcut kayıtlar korunur.
+   Veritabanı erişimi yalnızca backend üzerinden gerçekleştirilir.
 ========================= */
 
 // Tüm kullanıcılara gösterilen duyurular (ör. "Sunucu bakımı", "Yeni özellik").

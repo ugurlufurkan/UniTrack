@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createSemesterSchema = z.object({
-  year: z.number().min(2020).max(2100),
+  year: z.number().int().min(2020).max(2100),
 
   term: z.enum([
     "Güz",

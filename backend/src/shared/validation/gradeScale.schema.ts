@@ -10,6 +10,7 @@ export const gradeScaleSchema = z
   .array(gradeBandSchema)
   .min(2, "En az 2 harf notu aralığı girilmeli.")
   .max(20)
+  .refine((bands) => new Set(bands.map(b => b.letter.toUpperCase())).size === bands.length, "Aynı harf notu birden fazla kez kullanılamaz.")
   .refine(
     (bands) => bands.some((b) => b.min === 0),
     "Skalada 0 puandan başlayan bir aralık (en düşük harf) olmalı."

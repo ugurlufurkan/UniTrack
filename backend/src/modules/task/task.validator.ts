@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 export const createChecklistItemSchema = z.object({
-  title: z.string().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
 });
 
 export const updateChecklistItemSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
+  title: z.string().trim().min(1).max(200).optional(),
   isDone: z.boolean().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });

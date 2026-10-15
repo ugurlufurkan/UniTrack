@@ -10,7 +10,7 @@ const transporter = nodemailer.createTransport({
     user: env.SMTP_USER,
     pass: env.SMTP_PASS,
   },
-} as any);
+});
 
 export interface EmailOptions {
   to: string;

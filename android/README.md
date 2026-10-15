@@ -7,7 +7,8 @@
 ## Gereksinimler
 
 - Android Studio (güncel bir sürüm)
-- JDK 17+ (Android Studio genelde kendi getirir)
+- JDK 21 (`app/build.gradle.kts` içindeki Java ve Kotlin toolchain ayarıyla aynı olmalı)
+- Android SDK 36 (projenin `compileSdk` ve `targetSdk` değeri)
 
 ## Kurulum
 
@@ -26,7 +27,7 @@ Gerçek bir telefondan (emülatör değil) test etmek isterseniz, `10.0.2.2` ça
 
 ## Çalıştırma
 
-1. Backend'in ayakta olduğundan emin olun (bkz. `../backend/README.md`)
+1. Backend'in ayakta olduğundan emin olun (bkz. [backend kurulumu](../backend/README.md))
 2. Android Studio'da bir emülatör (Device Manager) oluşturun/seçin
 3. **Run** (yeşil ▶️ ikonu) — build type olarak **debug** seçili olmalı
 

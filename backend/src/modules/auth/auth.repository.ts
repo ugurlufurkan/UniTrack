@@ -1,4 +1,4 @@
-import { and, eq, isNull, gt, lt } from "drizzle-orm";
+import { and, eq, isNull, gt, lt, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { refreshTokens, users } from "../../db/schema";
 import { hashRefreshToken } from "../../lib/jwt";
@@ -17,16 +17,13 @@ class AuthRepository {
     const result = await db
       .select()
       .from(users)
-      .where(eq(users.email, email));
+      .where(sql`lower(${users.email}) = ${email.trim().toLowerCase()}`);
 
     return result[0];
   }
 
   async findById(userId: string) {
-    const result = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, userId));
+    const result = await db.select().from(users).where(eq(users.id, userId));
 
     return result[0];
   }
@@ -81,14 +78,18 @@ class AuthRepository {
     return result[0];
   }
 
-  async updateUser(userId: string, data: Partial<{
-    password: string;
-    isEmailVerified: boolean;
-    emailVerificationToken: string;
-    emailVerificationExpiresAt: Date;
-    passwordResetToken: string;
-    passwordResetExpiresAt: Date;
-  }>) {
+  async updateUser(
+    userId: string,
+    data: Partial<{
+      googleId: string;
+      password: string;
+      isEmailVerified: boolean;
+      emailVerificationToken: string | null;
+      emailVerificationExpiresAt: Date | null;
+      passwordResetToken: string | null;
+      passwordResetExpiresAt: Date | null;
+    }>,
+  ) {
     const result = await db
       .update(users)
       .set({
@@ -110,7 +111,7 @@ class AuthRepository {
       deviceType?: string;
       userAgent?: string;
       ipAddress?: string;
-    }
+    },
   ) {
     await db.insert(refreshTokens).values({
       userId,
@@ -162,10 +163,7 @@ class AuthRepository {
       .where(eq(refreshTokens.token, hashRefreshToken(token)));
   }
 
-  async revokeRefreshToken(
-    token: string,
-    replacedBy?: string
-  ) {
+  async revokeRefreshToken(token: string, replacedBy?: string) {
     await db
       .update(refreshTokens)
       .set({
@@ -184,13 +182,52 @@ class AuthRepository {
       .where(eq(refreshTokens.userId, userId));
   }
 
+  async rotateRefreshToken(
+    userId: string,
+    previous: string,
+    next: string,
+    expiresAt: Date,
+    deviceInfo?: {
+      deviceName: string;
+      deviceType: string;
+      userAgent?: string;
+      ipAddress?: string;
+    },
+  ) {
+    return db.transaction(async (tx) => {
+      const claimed = await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date(), replacedBy: hashRefreshToken(next) })
+        .where(
+          and(
+            eq(refreshTokens.token, hashRefreshToken(previous)),
+            isNull(refreshTokens.revokedAt),
+            gt(refreshTokens.expiresAt, new Date()),
+          ),
+        )
+        .returning({ id: refreshTokens.id });
+      if (!claimed.length) return false;
+      await tx
+        .insert(refreshTokens)
+        .values({
+          userId,
+          token: hashRefreshToken(next),
+          expiresAt,
+          ...deviceInfo,
+        });
+      return true;
+    });
+  }
+
   async revokeRefreshTokenById(userId: string, tokenId: string) {
     const result = await db
       .update(refreshTokens)
       .set({
         revokedAt: new Date(),
       })
-      .where(and(eq(refreshTokens.id, tokenId), eq(refreshTokens.userId, userId)));
+      .where(
+        and(eq(refreshTokens.id, tokenId), eq(refreshTokens.userId, userId)),
+      );
 
     return result.rowCount ?? 0;
   }
@@ -203,8 +240,8 @@ class AuthRepository {
         and(
           eq(refreshTokens.userId, userId),
           isNull(refreshTokens.revokedAt),
-          gt(refreshTokens.expiresAt, new Date())
-        )
+          gt(refreshTokens.expiresAt, new Date()),
+        ),
       )
       .orderBy(refreshTokens.createdAt);
 

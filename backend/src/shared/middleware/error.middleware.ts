@@ -37,22 +37,26 @@ export const errorMiddleware = (
 
   // Postgres errors (via node-postgres / drizzle-orm), identified by SQLSTATE code.
   // https://www.postgresql.org/docs/current/errcodes-appendix.html
-  if (typeof err?.code === "string") {
-    if (err.code === "23505") {
+  const databaseCode = err?.code ?? err?.cause?.code;
+  if (typeof databaseCode === "string") {
+    if (databaseCode === "22P02" || databaseCode === "22007" || databaseCode === "22008") {
+      return res.status(400).json({ success: false, message: "Kayıt kimliği veya tarih geçersiz." });
+    }
+    if (databaseCode === "23505") {
       return res.status(409).json({
         success: false,
         message: "Bu kayıt zaten mevcut.",
       });
     }
 
-    if (err.code === "23503") {
+    if (databaseCode === "23503") {
       return res.status(409).json({
         success: false,
         message: "İlişkili kayıt bulunamadığı için işlem tamamlanamadı.",
       });
     }
 
-    if (err.code === "23502") {
+    if (databaseCode === "23502") {
       return res.status(400).json({
         success: false,
         message: "Zorunlu bir alan eksik.",
