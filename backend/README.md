@@ -89,6 +89,8 @@ PDF içe aktarma en fazla 10 MB PDF kabul eder. Farklı üniversite biçimlerind
 
 ## Kontroller
 
+Migration geçmişi ayrıca PGlite içindeki PostgreSQL motorunda boş veritabanına uygulanır. İkinci çalıştırmanın güvenli olduğu, tablolar, ilişkiler ve varsayılan değerler otomatik doğrulanır. Bu kontrol mevcut öğrenci veritabanına bağlanmaz. `0006` içindeki yinelenen takvim komutları temizlenmiştir; migration sırası ve daha önce uygulanmış öğrenci verileri korunur.
+
 ```powershell
 npm test
 npm audit
