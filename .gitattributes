@@ -1,2 +1,11 @@
+# Metinlerde LF; binary varlıkların içeriklerine satır sonu dönüşümü uygulanmaz.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ttf binary
+*.jar binary
+*.keystore binary
+*.ico binary
 *.sh text eol=lf
 android/gradlew text eol=lf
