@@ -17,14 +17,28 @@ import javax.inject.Inject
 // Authenticator.authenticate() OkHttp tarafından ayrı bir thread'de senkron
 // çağrıldığı için, DataStore'un suspend API'lerine runBlocking ile erişiyoruz.
 // Bu, ana thread'i BLOKLAMAZ çünkü zaten OkHttp'nin arka plan thread'inde çalışıyoruz.
-class TokenAuthenticator @Inject constructor(
-    private val authPreferences: AuthPreferences,
-    // Lazy şart: AuthApiService -> Retrofit -> OkHttpClient -> (bu authenticator) döngüsünü kırar.
-    // Dagger bu sayede grafiği inşa ederken TokenAuthenticator'ı önce oluşturabilir,
-    // AuthApiService yalnızca ilk refreshToken() çağrıldığında lazily resolve edilir.
-    private val authApiLazy: Lazy<AuthApiService>,
-    private val sessionEventBus: SessionEventBus
+internal interface SessionCredentials {
+    fun accessToken(): String?
+    fun refreshToken(): String?
+    fun save(access: String, refresh: String)
+    fun clear()
+}
+
+class TokenAuthenticator internal constructor(
+    private val credentials: SessionCredentials,
+    private val authApi: () -> AuthApiService,
+    private val notifyLogout: () -> Unit
 ) : Authenticator {
+    @Inject constructor(
+        authPreferences: AuthPreferences,
+        authApiLazy: Lazy<AuthApiService>,
+        sessionEventBus: SessionEventBus
+    ) : this(object : SessionCredentials {
+        override fun accessToken() = runBlocking { authPreferences.getAccessTokenOnce() }
+        override fun refreshToken() = runBlocking { authPreferences.getRefreshTokenOnce() }
+        override fun save(access: String, refresh: String) = runBlocking { authPreferences.saveTokens(access, refresh) }
+        override fun clear() = runBlocking { authPreferences.clearTokens() }
+    }, { authApiLazy.get() }, { sessionEventBus.notifyForceLogout() })
 
     override fun authenticate(route: Route?, response: Response): Request? {
         // Eğer 401 hatası bizzat "refresh" endpoint'inden geliyorsa, sonsuz döngüye girmemek için işlemi kes.
@@ -44,7 +58,7 @@ class TokenAuthenticator @Inject constructor(
 
         // Çoklu isteklerde birden fazla kez refresh atılmaması için synchronized kullanıyoruz (Thread safety)
         synchronized(this) {
-            val currentToken = runBlocking { authPreferences.getAccessTokenOnce() }
+            val currentToken = credentials.accessToken()
             val incomingToken = response.request.header("Authorization")?.removePrefix("Bearer ")
 
             // Eğer biz beklerken başka bir paralel istek token'ı çoktan yenilemişse, direkt o yeni token'ı kullan.
@@ -55,14 +69,14 @@ class TokenAuthenticator @Inject constructor(
             }
 
             // Refresh token yoksa direkt çıkış yap
-            val refreshToken = runBlocking { authPreferences.getRefreshTokenOnce() } ?: run {
+            val refreshToken = credentials.refreshToken() ?: run {
                 forceLogout()
                 return null
             }
 
             // Yeni tokenları Backend'den senkron (execute) olarak alıyoruz
             val refreshResponse = try {
-                authApiLazy.get().refreshToken(RefreshTokenRequest(refreshToken)).execute()
+                authApi().refreshToken(RefreshTokenRequest(refreshToken)).execute()
             } catch (e: Exception) {
                 // Ağ hatası (internet yok, timeout): bu geçici bir durum, oturumu düşürmeye
                 // gerek yok. Sadece bu isteği pes ettir; bağlantı gelince normal akışa döner.
@@ -70,14 +84,9 @@ class TokenAuthenticator @Inject constructor(
             }
 
             return if (refreshResponse.isSuccessful) {
-                refreshResponse.body()?.let { newTokens ->
+                refreshResponse.body()?.takeIf { it.accessToken.isNotBlank() && it.refreshToken.isNotBlank() }?.let { newTokens ->
                     // Yeni tokenları DataStore'a kaydet (kullanıcı adı korunur, saveTokens null name'i overwrite etmiyor)
-                    runBlocking {
-                        authPreferences.saveTokens(
-                            access = newTokens.accessToken,
-                            refresh = newTokens.refreshToken
-                        )
-                    }
+                    credentials.save(newTokens.accessToken, newTokens.refreshToken)
 
                     // 401 alan o ilk başarısız isteği (örneğin /api/dashboard) yeni token ile KOPYALAYIP tekrar yolla
                     response.request.newBuilder()
@@ -87,7 +96,8 @@ class TokenAuthenticator @Inject constructor(
             } else {
                 // Refresh token da expire olmuş, geçersiz, ya da reuse tespit edilmiş
                 // (backend tüm oturumları düşürmüş olabilir). Oturumu kapat.
-                forceLogout()
+                refreshResponse.errorBody()?.close()
+                if (refreshResponse.code() == 401 || refreshResponse.code() == 403) forceLogout()
                 null
             }
         }
@@ -100,8 +110,8 @@ class TokenAuthenticator @Inject constructor(
      * otomatik olarak LoginScreen'e döner.
      */
     private fun forceLogout() {
-        runBlocking { authPreferences.clearTokens() }
-        sessionEventBus.notifyForceLogout()
+        credentials.clear()
+        notifyLogout()
     }
 
     private fun responseCount(response: Response): Int {
