@@ -1,0 +1,6 @@
+.env
+.env.*
+keys
+backups
+.test-output
+tests

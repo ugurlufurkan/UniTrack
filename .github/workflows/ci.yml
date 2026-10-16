@@ -21,6 +21,8 @@ jobs:
       - run: npm ci && npm run build
         working-directory: backend
       - run: node ops/tests/production.integration.mjs --build
+      - run: node --test ops/monitor.test.mjs
+      - run: node ops/tests/backup.integration.mjs
   backend:
     runs-on: ubuntu-latest
     services:

@@ -74,6 +74,57 @@ services:
     networks: [edge]
     depends_on: [web, backend]
     restart: unless-stopped
+  monitor:
+    build:
+      context: .
+      dockerfile: Monitor.Dockerfile
+    environment:
+      ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
+      ENABLE_EXTERNAL_ALERTS: ${ENABLE_EXTERNAL_ALERTS:-false}
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-false}
+    volumes: [monitor_state:/state, backup_status:/status:ro]
+    networks: [edge]
+    depends_on: [web, backend]
+    read_only: true
+    restart: unless-stopped
+  backup:
+    build:
+      context: .
+      dockerfile: Backup.Dockerfile
+    environment:
+      PGHOST: db
+      PGUSER: unitrack
+      PGDATABASE: unitrack
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      AGE_RECIPIENT: ${AGE_RECIPIENT:-}
+    volumes: [./backups:/backups, backup_status:/status]
+    networks: [data]
+    profiles: [backup]
+    depends_on:
+      db: { condition: service_healthy }
+    entrypoint: ['/bin/sh', '-ec']
+    command: ['while true; do /scripts/backup.sh; sleep 86400; done']
+    restart: unless-stopped
+  restore-check:
+    build:
+      context: .
+      dockerfile: Backup.Dockerfile
+    environment:
+      PGHOST: db
+      PGUSER: unitrack
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      BACKUP_FILE: ${BACKUP_FILE:-}
+    volumes:
+      - ./backups:/backups:ro
+      - type: bind
+        source: ${BACKUP_IDENTITY_FILE:-./keys/backup.agekey}
+        target: /run/secrets/backup_identity
+        read_only: true
+        bind:
+          create_host_path: false
+    networks: [data]
+    profiles: [recovery]
+    command: ['/scripts/restore-check.sh']
 networks:
   edge:
   data:
@@ -82,3 +133,5 @@ volumes:
   database:
   certificates:
   caddy_config:
+  monitor_state:
+  backup_status:

@@ -6,12 +6,16 @@ import app from "./app";
 import logger from "./config/logger";
 import { closeDatabase } from "./db";
 import { env } from "./config/env";
+import { cleanupEphemeralRecords } from "./lib/maintenance";
 
 const PORT = env.PORT;
 
 const server = app.listen(PORT, () => {
     logger.info(`🚀 Server running on port ${PORT}`);
 });
+const cleanup = () => cleanupEphemeralRecords().catch(err => logger.error({ err }, "Ephemeral record cleanup failed"));
+void cleanup();
+setInterval(cleanup, 3600000).unref();
 
 let closing = false;
 function shutdown(exitCode: number) {

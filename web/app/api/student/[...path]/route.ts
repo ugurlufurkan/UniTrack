@@ -64,6 +64,8 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     if (isLogout || (upstream.ok && ['auth/change-password', 'auth/logout-all'].includes(path)))
       clearSession(response);
     const disposition = upstream.headers.get('content-disposition');
+    const requestId = upstream.headers.get('x-request-id');
+    if (requestId) response.headers.set('X-Request-ID', requestId);
     if (disposition) response.headers.set('Content-Disposition', disposition);
     return response;
   } catch {

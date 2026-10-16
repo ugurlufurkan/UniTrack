@@ -15,7 +15,7 @@ docker compose --env-file ops/.env -f ops/compose.yml config --quiet
 docker compose --env-file ops/.env -f ops/compose.yml build
 docker compose --env-file ops/.env -f ops/compose.yml up -d db
 docker compose --env-file ops/.env -f ops/compose.yml run --rm migrate
-docker compose --env-file ops/.env -f ops/compose.yml up -d backend web ingress
+docker compose --env-file ops/.env -f ops/compose.yml up -d backend web ingress monitor
 docker compose --env-file ops/.env -f ops/compose.yml ps
 ```
 
@@ -34,3 +34,31 @@ Bu profil yeni yerel PostgreSQL oluşturur. Mevcut Neon/veritabanındaki öğren
 - Android release için `UNITRACK_API_URL` ve `UNITRACK_WEB_URL` Gradle özelliklerini gerçek HTTPS adreslerine ayarla ve keystore ile imzala.
 
 Güncellemede önce yedek al, yeni imajları derle, migration'ı bir kez uygula ve sağlık kontrolünden sonra trafiği aç. Veritabanı migration'ının geri alınması otomatik değildir; önceki imajı kullanmak her şema değişikliğini geri çevirmez.
+
+## Hata ve erişilebilirlik takibi
+
+Her API isteğine `X-Request-ID` verilir ve loglara aynı kimlik yazılır. Monitor, web/API sağlığını dakikada bir denetler; üç ardışık başarısızlıkta olay üretir, değişmeyen arızayı 15 dakika içinde tekrarlamaz ve düzelmeyi bir kez bildirir. Durum yeniden başlatmalarda korunur. `docker compose --env-file ops/.env -f ops/compose.yml logs --since 1h backend monitor` ile incele.
+
+Dış bildirim için kendi alıcının `ALERT_WEBHOOK_URL` değerini tanımlayıp `ENABLE_EXTERNAL_ALERTS=true` yap. Bu açık seçim olmadan dışarıya bildirim gönderilmez; olaylar loglara yazılır. Gövde `service`, `status`, `timestamp`, `text` alanlarını içerir. Webhook adaptörünü kendi alıcında doğrula; öğrenci verisi veya sır gönderilmez.
+
+## Şifreli yedek ve geri yükleme provası
+
+`age-keygen` ile bir kimlik oluştur; özel anahtarı sunucudan ayrı güvenli bir yerde tut, yalnızca herkese açık `age1...` alıcısını `AGE_RECIPIENT` olarak tanımla. Docker aracıyla üretmek için `ops/keys/` dizinini oluşturup Backup imajındaki `age-keygen -o /keys/backup.agekey` komutuna bu dizini bağlayabilirsin. Özel anahtar, `.env` ve yedekler Git tarafından dışlanır.
+
+`ops/backups/` dizinini oluştur ve izinlerini 700 yap. `BACKUP_ENABLED=true` ayarlayıp aşağıdaki servisi aç:
+
+```sh
+docker compose --env-file ops/.env -f ops/compose.yml --profile backup up -d backup monitor
+```
+
+İlk yedek hemen, sonrakiler 24 saatte bir alınır. `pg_dump` çıktısı diske açık halde yazılmadan age ile şifrelenir; SHA-256 özeti oluşturulur. Monitor, son başarılı yedek 26 saati geçerse bunu da arıza olarak izler. Otomatik yedek silme yapılmaz; saklama süresini kapasiteye göre belirle ve şifreli dosyalarla checksum dosyalarını sunucu dışında da sakla.
+
+Geri yükleme provasında `BACKUP_FILE` yalnızca dosya adı, `BACKUP_IDENTITY_FILE` özel anahtarın yolu olmalıdır:
+
+```sh
+BACKUP_FILE=unitrack-YYYYMMDDTHHMMSSZ-1.dump.age docker compose --env-file ops/.env -f ops/compose.yml --profile recovery run --rm restore-check
+```
+
+Komut checksum'u doğrular, şifreyi çözer ve yeni `unitrack_restore_check_*` veritabanına transaction içinde geri yükler. Ana tablolar sorgulanır, geçici veritabanı sonunda kaldırılır. Canlı `unitrack` veritabanına geri yükleme yapmaz. Gerçek kurtarmada önce bu provayı tamamla, servisi bakım moduna al ve operatör kontrolüyle hedefi değiştir; otomatik veri üzerine yazma eklenmemiştir.
+
+`node ops/tests/backup.integration.mjs` gerçek PostgreSQL verisini şifreleyip geri yükleyerek kayıt sayılarını ve geçici veritabanının temizlendiğini doğrular. Bu test için Docker ve derlenmiş backend gerekir.

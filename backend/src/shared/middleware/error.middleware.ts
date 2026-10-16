@@ -68,7 +68,7 @@ export const errorMiddleware = (
   // server-side, but never forward the raw error message to the client:
   // it can leak internals (file paths, query fragments, stack traces, etc).
   logger.error(
-    { err, path: req.path, method: req.method, userId: req.user?.userId },
+    { err, path: req.path, method: req.method, userId: req.user?.userId, requestId: req.id },
     "Unhandled error"
   );
 
@@ -76,6 +76,7 @@ export const errorMiddleware = (
 
   return res.status(statusCode).json({
     success: false,
+    requestId: req.id,
     message:
       env.NODE_ENV === "production"
         ? "Beklenmeyen bir hata oluştu."

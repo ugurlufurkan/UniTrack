@@ -20,3 +20,8 @@ android/.kotlin/
 .idea/
 android/.idea/
 *.iml
+
+# Operational secrets and generated backups/test material
+/ops/keys/
+/ops/backups/
+/ops/.test-output/
