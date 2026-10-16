@@ -1,5 +1,9 @@
 package com.unitrack.app.notifications
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -53,6 +57,10 @@ class NotificationHelper @Inject constructor(
      * bkz. EventNotificationScheduler.notificationIdFor).
      */
     fun show(notificationId: Int, title: String, body: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
         ensureChannel()
 
         val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -77,8 +85,10 @@ class NotificationHelper @Inject constructor(
 
         // POST_NOTIFICATIONS reddedilmiş/verilmemişse (Android 13+) sistem
         // zaten göstermeyecektir; SecurityException'a karşı savunmacı çağrı.
-        runCatching {
+        try {
             NotificationManagerCompat.from(context).notify(notificationId, notification)
+        } catch (_: SecurityException) {
+            // Permission can be revoked between the check and delivery.
         }
     }
 }
