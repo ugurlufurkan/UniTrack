@@ -8,6 +8,8 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+export const closeDatabase = () => pool.end();
+
 // Idle client'lar beklenmedik şekilde koptuğunda (ör. Neon sleep,
 // ağ kesintisi) Pool bu eventi fırlatır. Handler olmazsa process
 // "unhandledError" ile çöker. Burada loglayıp bırakıyoruz — Pool

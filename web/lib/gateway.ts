@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server';
 export function signGateway(request: NextRequest, headers: Headers, path: string) {
   const secret = process.env.WEB_PROXY_SECRET;
   const ipHeader = process.env.WEB_CLIENT_IP_HEADER;
+  if (secret && secret.length < 32) throw new Error('Proxy secret is too short');
   if (!secret || !ipHeader) {
     if (process.env.NODE_ENV === 'production')
       throw new Error('Configure WEB_PROXY_SECRET and WEB_CLIENT_IP_HEADER');

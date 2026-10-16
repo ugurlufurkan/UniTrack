@@ -8,6 +8,7 @@
     "build": "tsc",
     "test": "npm run build && node --test tests/*.test.cjs",
     "test:postgres": "npm run build && node --test tests/postgres.integration.cjs",
+    "check:production": "npm run build && node scripts/check-production.cjs",
     "start": "node dist/server.js",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",

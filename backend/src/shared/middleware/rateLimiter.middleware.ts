@@ -30,6 +30,7 @@ export const rateLimiter = rateLimit({
     message: "Too many requests, please try again later.",
   },
   skip: (req) => {
+    if (["/api/health", "/api/live"].includes(req.path)) return true;
     // Skip rate limiting in development
     return process.env.NODE_ENV === "development";
   },

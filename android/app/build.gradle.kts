@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.net.URI
 
 plugins {
     alias(libs.plugins.android.application)
@@ -11,9 +12,8 @@ plugins {
 
 // Release imzalama bilgileri commit edilmeyen `keystore.properties`'ten okunur
 // (bkz. keystore.properties.example + android/.gitignore). Dosya yoksa
-// (ör. CI'da henüz kurulmadıysa) release signingConfig sessizce atlanır —
-// derleme kırılmaz ama üretilen AAB imzasız kalır, bu da net bir uyarıyla
-// aşağıda belirtiliyor.
+// debug derlemesi çalışmaya devam eder. preReleaseBuild, imza veya gerçek
+// HTTPS adresleri eksikse yayın paketinin üretilmesini engeller.
 val keystorePropertiesFile = rootProject.file("keystore.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -21,11 +21,25 @@ val keystoreProperties = Properties().apply {
     }
 }
 val hasReleaseSigning = keystorePropertiesFile.exists()
+val releaseApiUrl = providers.gradleProperty("UNITRACK_API_URL").orElse("https://api.invalid/api/v1/").get()
+val releaseWebUrl = providers.gradleProperty("UNITRACK_WEB_URL").orElse("https://web.invalid").get()
+fun validReleaseUrl(value: String): Boolean = runCatching {
+    val uri = URI(value)
+    uri.scheme == "https" && !uri.host.isNullOrBlank() && !uri.host.endsWith(".invalid") &&
+        uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null
+}.getOrDefault(false)
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        require(hasReleaseSigning) { "Release için keystore.properties ile imzalama yapılandırılmalıdır." }
+        require(validReleaseUrl(releaseApiUrl) && releaseApiUrl.endsWith("/api/v1/")) { "UNITRACK_API_URL gerçek HTTPS /api/v1/ adresi olmalıdır." }
+        require(validReleaseUrl(releaseWebUrl)) { "UNITRACK_WEB_URL gerçek HTTPS web adresi olmalıdır." }
+    }
+}
 
 if (!hasReleaseSigning) {
-    logger.warn(
-        "UYARI: keystore.properties bulunamadı — release build imzasız kalacak. " +
-            "Play Console'a yüklemeden önce keystore.properties.example'ı kopyalayıp doldur."
+    logger.lifecycle(
+        "Release imzalama ayarları bulunamadı. Debug kullanılabilir; release için keystore.properties gereklidir."
     )
 }
 
@@ -75,11 +89,11 @@ android {
             }
             // TODO: backend prod'a deploy edilince gerçek domain ile değiştir.
             // Bu bir sır değil (public API adresi), o yüzden burada sabit kalabilir.
-            buildConfigField("String", "BASE_URL", "\"https://api.unitrack.app/api/v1/\"")
+            buildConfigField("String", "BASE_URL", "\"${releaseApiUrl.replace("\"", "")}\"")
             // Web öğrenci portalının domain'i — Ayarlar ekranındaki "Gizlilik
             // Politikası" / "Hesabımı Sil (web)" linkleri buraya /legal/... ekleyerek
             // açılıyor (bkz. util/AppLinks.kt). Web domain'i değişirse güncelle.
-            buildConfigField("String", "WEB_BASE_URL", "\"https://unitrack.app\"")
+            buildConfigField("String", "WEB_BASE_URL", "\"${releaseWebUrl.replace("\"", "")}\"")
         }
     }
 

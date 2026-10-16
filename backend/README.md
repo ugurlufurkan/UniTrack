@@ -17,7 +17,7 @@ Copy-Item .env.example .env
 | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`                          | Zorunlu PostgreSQL bağlantı adresi.                                                                                                                                     |
 | `JWT_SECRET`, `JWT_REFRESH_SECRET`      | Zorunlu, birbirinden farklı ve rastgele imzalama anahtarları.                                                                                                           |
-| `GOOGLE_CLIENT_ID`                      | Mevcut başlangıç doğrulamasında zorunlu Google web OAuth istemci kimliği.                                                                                               |
+| `GOOGLE_CLIENT_ID`                      | Google ile giriş kullanılacaksa web OAuth istemci kimliği. Boşsa bu yöntem 503 döner.                                                                                   |
 | `PORT`                                  | Varsayılan `5000`.                                                                                                                                                      |
 | `NODE_ENV`                              | Yerelde `development`, yayında `production`.                                                                                                                            |
 | `FRONTEND_URL`                          | Şifre sıfırlama ve e-posta doğrulama bağlantılarında kullanılacak web adresi. Varsayılan `http://localhost:3000`.                                                       |

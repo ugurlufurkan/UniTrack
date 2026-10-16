@@ -21,7 +21,7 @@
 `app/build.gradle.kts` içinde `BASE_URL` build type'a göre değişir:
 
 - **debug** → `http://10.0.2.2:5000/api/v1/` — Android emülatöründen bilgisayarınızın `localhost`'una işaret eden özel adres. Emülatörde çalıştırıyorsanız, backend'i bilgisayarınızda `npm run dev` ile ayağa kaldırmanız yeterli, başka bir ayar gerekmez.
-- **release** → `https://api.unitrack.app/api/v1/` — gerçek prod domaini. Henüz bir sunucuya deploy edilmedi.
+- **release** → `UNITRACK_API_URL` ve `UNITRACK_WEB_URL` Gradle özelliklerinden alınır. Gerçek HTTPS adresleri ve `keystore.properties` verilmeden release derlemesi durur.
 
 Gerçek bir telefondan (emülatör değil) test etmek isterseniz, `10.0.2.2` çalışmaz — bilgisayarınızın yerel ağ IP'sini (`ör. 192.168.1.x`) kullanmanız ve telefonla aynı Wi-Fi'de olmanız gerekir.
 

@@ -30,6 +30,7 @@ import logger from "./config/logger";
 import { rateLimiter } from "./shared/middleware/rateLimiter.middleware";
 import { env } from "./config/env";
 import { verifyGateway } from "./shared/middleware/gateway.middleware";
+import { sql } from "drizzle-orm";
 
 const app = express();
 
@@ -95,9 +96,12 @@ app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 app.get("/api/health", async (_, res) => {
   try {
+    if (app.locals.draining) { res.status(503).json({ success: false, message: "Service draining" }); return; }
     // Check database connection
     const { db } = await import("./db/index.js");
     await db.execute("SELECT 1");
+    const schemaReady = await db.execute(sql`SELECT to_regclass('public.rate_limit_buckets') AS ready`);
+    if (!schemaReady.rows[0]?.ready) throw new Error("Database migrations pending");
 
     res.status(200).json({
       success: true,
@@ -116,6 +120,8 @@ app.get("/api/health", async (_, res) => {
     });
   }
 });
+
+app.get("/api/live", (_, res) => { res.json({ success: true }); });
 
 // --- API versioning ---------------------------------------------------
 // All feature routes live under /api/v1/*. We also mount the same router

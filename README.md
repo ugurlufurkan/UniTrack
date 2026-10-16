@@ -59,7 +59,7 @@ npm ci
 Copy-Item .env.example .env
 ```
 
-`.env` içindeki `DATABASE_URL`, birbirinden farklı `JWT_SECRET` / `JWT_REFRESH_SECRET` ve `GOOGLE_CLIENT_ID` değerlerini doldur. Mevcut backend yapılandırması Google istemci kimliğini başlangıçta zorunlu tutar. E-posta bağlantıları için `FRONTEND_URL=http://localhost:3000` kullan.
+`.env` içindeki `DATABASE_URL` ve birbirinden farklı, en az 32 karakterlik `JWT_SECRET` / `JWT_REFRESH_SECRET` değerlerini doldur. Google ile giriş kullanılacaksa `GOOGLE_CLIENT_ID` tanımla. E-posta bağlantıları için `FRONTEND_URL=http://localhost:3000` kullan.
 
 ```powershell
 npm run db:migrate
@@ -108,6 +108,8 @@ node scripts/smoke-api.mjs http://127.0.0.1:5000/api/v1
 Bu kontrol geçici bir öğrenci hesabı oluşturur, API işlemlerini doğrular ve sonunda hesabı ilişkili verileriyle siler. Google OAuth, gerçek SMTP teslimatı ve farklı üniversitelerin PDF biçimleri ayrıca doğrulanmalıdır. Bağımlılık taramasındaki geliştirme aracı uyarısı [web belgesinde](./web/README.md#bağımlılık-taraması) açıklanır.
 
 ## Yayına hazırlık ve admin panelinden geçiş
+
+HTTPS, Docker, migration ve gerçek ortam kabul adımları [yayın kılavuzunda](./ops/README.md) bulunur. Domain/hosting henüz seçilmediği için canlı Google girişi ve SMTP teslimatı doğrulanmış sayılmaz.
 
 - Eski `admin-panel/` kaldırıldı. Web hosting ve CI çalışma dizini `web/` olmalı; derleme `npm run build`, başlatma `npm start` komutuyla yapılır.
 - Web için HTTPS, erişilebilir bir `API_URL` ve backend için web adresini gösteren `FRONTEND_URL` tanımla. `NEXT_PUBLIC_*` değişiklikleri yeniden web derlemesi gerektirir.

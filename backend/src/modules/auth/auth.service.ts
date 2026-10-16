@@ -23,6 +23,7 @@ import {
 import { sendVerificationEmail, sendPasswordResetEmail } from "../../lib/email";
 import { Request } from "express";
 import { randomBytes } from "crypto";
+import { env } from "../../config/env";
 
 class AuthService {
   /** API response'a dönen user objesinden hassas alanları çıkarır. */
@@ -49,6 +50,7 @@ class AuthService {
   }
 
   async googleLogin(idToken: string, req?: Request) {
+    if (!env.GOOGLE_CLIENT_ID) throw new AppError("Google ile giriş henüz yapılandırılmadı.", 503);
     if (!idToken) {
       throw AppError.badRequest("idToken zorunludur.");
     }
