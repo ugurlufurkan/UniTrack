@@ -64,6 +64,8 @@ Hosting çalışma dizini `web/` olmalıdır. HTTPS kullan. `API_URL` çalışan
 
 ## Doğrulama
 
+Gerçek tarayıcı testi için önce `backend/` bağımlılıklarını kurup derle. Ardından `web/` içinde `npx playwright install chromium`, `npm run build` ve `npm run test:e2e` çalıştır. Test, gerçek Express uygulamasını izole PGlite veritabanıyla açar; kayıt, dönem/ders/not kaydı, mobil görünüm ve yeniden girişi doğrular. Canlı API veya öğrenci hesabı kullanmaz. GitHub Actions bu kontrolleri backend testleri ve Android test/lint ile her push/PR'da çalıştırır.
+
 ```powershell
 npm test
 npm run lint

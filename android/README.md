@@ -43,6 +43,14 @@ Gerçek bir telefondan (emülatör değil) test etmek isterseniz, `10.0.2.2` ça
 - `ui/*` — her özellik için ekran + ViewModel (dashboard, course, calendar, attendance, task, transcript, gpa, settings, ...)
 - `notifications`, `widget`, `util` — bildirim/hatırlatıcı, ana ekran widget'ı, PDF/transkript export gibi yardımcılar
 
+## Kontroller
+
+```powershell
+.\gradlew.bat :app:testDebugUnitTest :app:lintDebug
+```
+
+MockWebServer testleri GET tekrarlarını, yazma isteklerinin yinelenmemesini, geçici oturum servisi hatalarında hesabın korunmasını ve eşzamanlı isteklerde tek refresh yapılmasını doğrular. GitHub Actions JDK 21 ile aynı testleri ve lint kontrolünü çalıştırır. Gerçek Google girişinin ve imzalı release paketinin cihaz kabul testi ayrıca yapılmalıdır.
+
 ## Bilinen özellikler
 
 - Verilerimi dışa aktar: Dashboard'da tema seçicinin altında, backend'den tüm hesap verisini JSON olarak indirip paylaşım sayfasını açar.
