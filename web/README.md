@@ -60,7 +60,7 @@ Hosting çalışma dizini `web/` olmalıdır. HTTPS kullan. `API_URL` çalışan
 - Oturum yenileme sekmeler arasında Web Locks ile sıraya alınır. Backend, PostgreSQL üzerinde atomik yeniler; 10 saniyelik tekrar penceresinde farklı sunucular aynı aktif token'ı yeniden üretebilir. Sonraki tekrar kullanımlar oturumları iptal eder. Ham refresh token veritabanına yazılmaz.
 - Ağ, doğrulama, boş liste, yüklenme ve tekrar deneme durumları arayüzde gösterilir.
 - Gerçek zamanlı abonelik yoktur: veriler sayfa geçişinde, kayıt işlemi sonrasında ve sekmeye geri dönüldüğünde yenilenir. Web ve Android aynı kalıcı veriyi kullanır.
-- Web bildirimleri ve çevrimdışı web desteği eklenmemiştir. Android hatırlatıcıları kendi istemcisinde çalışmaya devam eder.
+- Portal ana ekrana yüklenebilir. Çevrimdışı ders özeti cihaz ayarlarında açıkça etkinleştirilir; yalnızca ders/dönem alanları IndexedDB'de saklanır, 7 gün sonra gösterilmez. API yanıtları, oturum anahtarları ve özel HTML önbelleğe alınmaz. Çıkış/hesap değişimi kopyayı temizler; çevrimdışı çıkış bağlantı döndüğünde sunucuda tamamlanır. Çevrimdışı düzenleme veya otomatik veri birleştirme yapılmaz.
 
 ## Doğrulama
 

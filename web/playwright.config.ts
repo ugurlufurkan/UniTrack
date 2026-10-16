@@ -19,10 +19,12 @@ export default defineConfig({
       reuseExistingServer: false,
     },
     {
-      command: 'node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3198',
+      command: 'node .next/standalone/server.js',
       url: 'http://127.0.0.1:3198/login',
       reuseExistingServer: false,
       env: {
+        PORT: '3198',
+        HOSTNAME: '127.0.0.1',
         API_URL: 'http://127.0.0.1:5105/api/v1',
         WEB_PROXY_SECRET: 'e2e-web-proxy-secret-at-least-32-characters',
         WEB_CLIENT_IP_HEADER: 'x-forwarded-for',

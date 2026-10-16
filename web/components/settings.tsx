@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { api, json } from '@/lib/api';
 import type { GradeBand } from '@/lib/types';
 import { usePortal, useResource } from './portal-provider';
+import { DevicePreferences } from './pwa';
 import {
   AsyncForm,
   Badge,
@@ -365,6 +366,7 @@ export function Settings() {
           </AsyncForm>
         </section>
         <Devices />
+        <DevicePreferences />
         <section className="panel settings-panel">
           <div className="panel-heading">
             <h2>Verilerin senin kontrolünde</h2>

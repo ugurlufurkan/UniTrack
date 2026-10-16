@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>UniTrack · Çevrimdışı</title>
+    <link rel="stylesheet" href="/offline.css" />
+    <script src="/offline.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <img src="/icons/icon-192.png" width="64" height="64" alt="UniTrack" />
+      <h1>Bağlantına kısa bir ara.</h1>
+      <p>
+        İnternet geldiğinde güncel verilerine dönebilirsin. Bu ekrandaki kopya üzerinde değişiklik
+        yapılamaz.
+      </p>
+      <p id="status" role="status">Cihazdaki kopya kontrol ediliyor…</p>
+      <section id="snapshot" hidden>
+        <h2>Derslerinin son kopyası</h2>
+        <div id="courses"></div>
+        <button id="clear" type="button">Cihazdaki kopyayı sil</button>
+      </section>
+      <a href="/">Yeniden bağlan</a>
+    </main>
+  </body>
+</html>

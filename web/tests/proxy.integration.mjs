@@ -21,28 +21,19 @@ test(
     const apiPort = server.address().port;
     const port = 3197;
     const base = `http://127.0.0.1:${port}`;
-    const child = spawn(
-      process.execPath,
-      [
-        'node_modules/next/dist/bin/next',
-        'start',
-        '--hostname',
-        '127.0.0.1',
-        '--port',
-        String(port),
-      ],
-      {
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          WEB_PROXY_SECRET: 'fixture-web-proxy-secret-at-least-32-chars',
-          WEB_CLIENT_IP_HEADER: 'x-forwarded-for',
-          API_URL: `http://127.0.0.1:${apiPort}/api/v1`,
-        },
-        stdio: 'pipe',
-        windowsHide: true,
+    const child = spawn(process.execPath, ['.next/standalone/server.js'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PORT: String(port),
+        HOSTNAME: '127.0.0.1',
+        WEB_PROXY_SECRET: 'fixture-web-proxy-secret-at-least-32-chars',
+        WEB_CLIENT_IP_HEADER: 'x-forwarded-for',
+        API_URL: `http://127.0.0.1:${apiPort}/api/v1`,
       },
-    );
+      stdio: 'pipe',
+      windowsHide: true,
+    });
     let output = '';
     child.stdout.on('data', (chunk) => {
       output += chunk;

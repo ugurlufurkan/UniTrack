@@ -4,15 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
-    "start": "next start",
+    "build": "next build --webpack && node scripts/prepare-standalone.mjs",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --test tests/*.test.mjs",
     "test:integration": "node --test tests/proxy.integration.mjs",
     "test:e2e": "playwright test",
-    "format": "prettier --write app components lib tests *.json *.mjs *.js README.md",
-    "format:check": "prettier --check app components lib tests *.json *.mjs *.js README.md"
+    "format": "prettier --write app components lib tests public scripts *.json *.mjs *.js *.ts README.md",
+    "format:check": "prettier --check app components lib tests public scripts *.json *.mjs *.js *.ts README.md"
   },
   "dependencies": {
     "next": "16.4.1",

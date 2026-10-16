@@ -1,4 +1,11 @@
 'use client';
+import {
+  clearDeviceData,
+  markPendingLogout,
+  hasPendingLogout,
+  flushPendingLogout,
+  clearPendingLogout,
+} from './device-storage';
 
 export class ApiError extends Error {
   constructor(
@@ -37,6 +44,19 @@ async function refreshSession() {
 }
 
 export async function api<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const isPublic =
+    /^auth\/(login|register|google|forgot-password|reset-password|verify-email)$/.test(path);
+  if (hasPendingLogout() && path !== 'auth/logout') {
+    if (!(await flushPendingLogout()))
+      throw new ApiError('Çıkışın tamamlanması için bağlantını kontrol et.', 503);
+    if (!isPublic) throw new ApiError('Oturum kapatıldı. Tekrar giriş yap.', 401);
+  }
+  if (
+    ['auth/logout', 'auth/logout-all', 'auth/change-password'].includes(path) ||
+    (path === 'auth/me' && options.method === 'DELETE')
+  )
+    await clearDeviceData();
+  if (path === 'auth/logout') markPendingLogout();
   const headers = new Headers(options.headers);
   if (options.body && !(options.body instanceof FormData))
     headers.set('Content-Type', 'application/json');
@@ -45,8 +65,6 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   let response: Response;
   try {
     response = await send();
-    const isPublic =
-      /^auth\/(login|register|google|forgot-password|reset-password|verify-email)$/.test(path);
     if (response.status === 401 && !isPublic && path !== 'auth/logout' && (await refreshSession()))
       response = await send();
   } catch (error) {
@@ -54,6 +72,8 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new ApiError('Bağlantı kurulamadı. İnternet bağlantını kontrol et.', 503);
   }
+  if (path === 'auth/logout' && response.status < 500) clearPendingLogout();
+  if (response.ok && /^auth\/(login|register|google)$/.test(path)) await clearDeviceData();
   if (response.status === 204) return undefined as T;
   const data = await response.json();
   if (!response.ok) {

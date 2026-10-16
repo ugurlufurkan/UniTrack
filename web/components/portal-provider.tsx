@@ -5,6 +5,7 @@ import { api, ApiError, SESSION_EXPIRED_EVENT } from '@/lib/api';
 import { sortSemesters } from '@/lib/academic.mjs';
 import type { Course, GradeBand, Semester, Settings, User } from '@/lib/types';
 import { ErrorNotice, Loading } from './ui';
+import { saveOfflineSnapshot, clearDeviceData } from '@/lib/device-storage';
 
 type Core = {
   user: User;
@@ -62,7 +63,10 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const reload = useCallback(() => setRevision((v) => v + 1), []);
   const notify = useCallback((value: string) => setMessage(value), []);
   useEffect(() => {
-    const expired = () => router.replace('/login?expired=1');
+    const expired = () => {
+      void clearDeviceData();
+      router.replace('/login?expired=1');
+    };
     window.addEventListener(SESSION_EXPIRED_EVENT, expired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, expired);
   }, [router]);
@@ -85,12 +89,15 @@ export function PortalProvider({ children }: { children: ReactNode }) {
             scale: scale.gradeScale,
           });
           setError('');
+          void saveOfflineSnapshot(profile.user, semesters, courses).catch(() => {});
         }
       })
       .catch((e) => {
         if (active) {
-          if (e instanceof ApiError && e.status === 401) router.replace('/login?expired=1');
-          else setError(e.message);
+          if (e instanceof ApiError && e.status === 401) {
+            void clearDeviceData();
+            router.replace('/login?expired=1');
+          } else setError(e.message);
         }
       });
     return () => {
