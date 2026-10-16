@@ -113,7 +113,7 @@ class AuthRepository {
       ipAddress?: string;
     },
   ) {
-    await db.insert(refreshTokens).values({
+    const [session] = await db.insert(refreshTokens).values({
       userId,
       token: hashRefreshToken(token),
       expiresAt,
@@ -121,7 +121,8 @@ class AuthRepository {
       deviceType: deviceInfo?.deviceType,
       userAgent: deviceInfo?.userAgent,
       ipAddress: deviceInfo?.ipAddress,
-    });
+    }).returning({ id: refreshTokens.id });
+    return session.id;
   }
 
   // Returns the token row regardless of revoked/expired status — the caller
@@ -164,14 +165,30 @@ class AuthRepository {
       .where(eq(refreshTokens.token, hashRefreshToken(token)));
   }
 
-  async revokeRefreshToken(token: string, replacedBy?: string) {
-    await db
-      .update(refreshTokens)
-      .set({
-        revokedAt: new Date(),
-        replacedBy: replacedBy ? hashRefreshToken(replacedBy) : replacedBy,
-      })
-      .where(eq(refreshTokens.token, hashRefreshToken(token)));
+  private async revokeChain(initialHash: string, ownerId?: string) {
+    return db.transaction(async tx => {
+      let current: string | null = initialHash;
+      let owner = ownerId;
+      let count = 0;
+      const visited = new Set<string>();
+      while (current && !visited.has(current) && count < 128) {
+        visited.add(current);
+        const [row] = await tx.select().from(refreshTokens).where(and(
+          eq(refreshTokens.token, current), owner ? eq(refreshTokens.userId, owner) : undefined,
+        )).for("update");
+        if (!row) break;
+        owner = row.userId;
+        await tx.update(refreshTokens).set({ revokedAt: row.revokedAt || new Date() }).where(eq(refreshTokens.id, row.id));
+        current = row.replacedBy;
+        count++;
+      }
+      if (current && count === 128 && owner) await tx.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.userId, owner));
+      return count;
+    });
+  }
+
+  async revokeRefreshToken(token: string) {
+    return this.revokeChain(hashRefreshToken(token));
   }
 
   async revokeAllRefreshTokens(userId: string) {
@@ -209,29 +226,21 @@ class AuthRepository {
         )
         .returning({ id: refreshTokens.id });
       if (!claimed.length) return false;
-      await tx
+      const [replacement] = await tx
         .insert(refreshTokens)
         .values({
           userId,
           token: hashRefreshToken(next),
           expiresAt,
           ...deviceInfo,
-        });
-      return true;
+        }).returning({ id: refreshTokens.id });
+      return replacement.id;
     });
   }
 
   async revokeRefreshTokenById(userId: string, tokenId: string) {
-    const result = await db
-      .update(refreshTokens)
-      .set({
-        revokedAt: new Date(),
-      })
-      .where(
-        and(eq(refreshTokens.id, tokenId), eq(refreshTokens.userId, userId)),
-      );
-
-    return result.rowCount ?? 0;
+    const [row] = await db.select({ token: refreshTokens.token }).from(refreshTokens).where(and(eq(refreshTokens.id, tokenId), eq(refreshTokens.userId, userId)));
+    return row ? this.revokeChain(row.token, userId) : 0;
   }
 
   async getUserRefreshTokens(userId: string) {

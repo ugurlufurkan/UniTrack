@@ -5,6 +5,7 @@ import { env } from "../config/env";
 export interface AccessTokenPayload {
   userId: string;
   email: string;
+  sessionId?: string;
 }
 
 export interface RefreshTokenPayload {

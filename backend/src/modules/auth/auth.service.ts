@@ -94,21 +94,17 @@ class AuthService {
 
     const deviceInfo = req ? this.extractDeviceInfo(req) : undefined;
 
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      email: user.email,
-    });
-
     const refreshToken = generateRefreshToken({
       userId: user.id,
     });
 
-    await authRepository.saveRefreshToken(
+    const sessionId = await authRepository.saveRefreshToken(
       user.id,
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
       deviceInfo,
     );
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email, sessionId });
 
     await createAuditLog({
       userId: user.id,
@@ -173,21 +169,17 @@ class AuthService {
       throw AppError.unauthorized("Geçersiz email veya şifre.");
     }
 
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      email: user.email,
-    });
-
     const refreshToken = generateRefreshToken({
       userId: user.id,
     });
 
-    await authRepository.saveRefreshToken(
+    const sessionId = await authRepository.saveRefreshToken(
       user.id,
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
       deviceInfo,
     );
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email, sessionId });
 
     await createAuditLog({
       userId: user.id,
@@ -249,21 +241,17 @@ class AuthService {
 
     const deviceInfo = req ? this.extractDeviceInfo(req) : undefined;
 
-    const accessToken = generateAccessToken({
-      userId: user.id,
-      email: user.email,
-    });
-
     const refreshToken = generateRefreshToken({
       userId: user.id,
     });
 
-    await authRepository.saveRefreshToken(
+    const sessionId = await authRepository.saveRefreshToken(
       user.id,
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
       deviceInfo,
     );
+    const accessToken = generateAccessToken({ userId: user.id, email: user.email, sessionId });
 
     await createAuditLog({
       userId: user.id,
@@ -310,7 +298,7 @@ class AuthService {
       if (hashRefreshToken(replacement) !== previous.replacedBy) return;
       const active = await authRepository.findRefreshToken(replacement);
       if (!active || active.revokedAt || active.expiresAt.getTime() <= Date.now()) return;
-      return { success: true, accessToken: generateAccessToken({ userId: previous.user.id, email: previous.user.email }), refreshToken: replacement };
+      return { success: true, accessToken: generateAccessToken({ userId: previous.user.id, email: previous.user.email, sessionId: active.id }), refreshToken: replacement };
     };
     if (token.revokedAt) {
       const recovered = await recoverRotation(token);
@@ -337,11 +325,6 @@ class AuthService {
     // Refresh token rotation
     const deviceInfo = req ? this.extractDeviceInfo(req) : undefined;
 
-    const newAccessToken = generateAccessToken({
-      userId: token.user.id,
-      email: token.user.email,
-    });
-
     const rotatedAt = new Date();
     const newRefreshToken = generateRotatedRefreshToken(token.user.id, refreshToken, rotatedAt);
 
@@ -365,6 +348,7 @@ class AuthService {
       );
     }
 
+    const newAccessToken = generateAccessToken({ userId: token.user.id, email: token.user.email, sessionId: rotated });
     await createAuditLog({
       userId: token.user.id,
       action: "TOKEN_REFRESH",

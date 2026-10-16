@@ -53,7 +53,7 @@ function Devices() {
               </div>
               <ConfirmButton
                 className="button secondary compact"
-                message="Bu cihazın yenileme oturumu kapatılacak. Açık erişim anahtarı en fazla 15 dakika daha geçerli olabilir."
+                message="Bu cihazın oturumu kapatılacak ve sonraki API isteğinde yeniden giriş gerekecek."
                 onConfirm={async () => {
                   await api(`auth/devices/${device.id}`, { method: 'DELETE' });
                   reload();
