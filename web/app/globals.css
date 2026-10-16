@@ -1101,6 +1101,7 @@ svg {
 
 /* Tables, forms and academic tools */
 .table-scroll {
+  position: relative;
   overflow-x: auto;
 }
 table {
