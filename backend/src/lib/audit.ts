@@ -2,6 +2,7 @@ import { auditLogs } from "../db/schema";
 import { db } from "../db";
 import { Request } from "express";
 import logger from "../config/logger";
+import { gatewayClientIp } from "../shared/middleware/gateway.middleware";
 
 export interface AuditLogData {
   userId?: string;
@@ -41,11 +42,7 @@ export function extractDeviceInfo(req: Request): {
   ipAddress?: string;
 } {
   const userAgent = req.headers["user-agent"];
-  const ipAddress = 
-    req.headers["x-forwarded-for"] as string ||
-    req.headers["x-real-ip"] as string ||
-    req.socket.remoteAddress ||
-    "unknown";
+  const ipAddress = gatewayClientIp(req) || req.ip || req.socket.remoteAddress || "unknown";
 
   return {
     userAgent,

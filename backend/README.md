@@ -85,6 +85,10 @@ PDF içe aktarma en fazla 10 MB PDF kabul eder. Farklı üniversite biçimlerind
 
 ## Web ve e-posta bağlantısı
 
+Üretimde web ve API için aynı `WEB_PROXY_SECRET` tanımlanır. Web, yalnızca güvenilen ingress'in sağladığı istemci IP'sini imzalar; backend zaman damgasını, yöntemi ve yolu doğrulamadan bu kimliği kullanmaz. `TRUST_PROXY` yalnızca gerçekten kapalı ingress topolojisinde yapılandırılmalıdır. Doğrudan gelen `X-Forwarded-For` / `X-Real-IP` başlıkları oturum kayıtlarında kullanılmaz.
+
+İstek sayaçları `rate_limit_buckets` tablosunda hash anahtarlarla API sunucuları arasında paylaşılır. Yeni migration yayın öncesinde uygulanmalıdır. Refresh tekrarları 10 saniye boyunca aynı aktif replacement token ile cevaplanır; bu pencere dışında tekrar kullanım tüm oturumları iptal eder. Bu yaklaşım ağ tekrarlarında ve çoklu sunucuda yanlış oturum kapatmalarını önler; veritabanında ham refresh token saklanmaz.
+
 [Web kurulumundaki](../web/README.md) `API_URL`, bu API'nin `/api/v1` adresini göstermelidir. Backend'in `FRONTEND_URL` değeri ise web portalının adresidir. Next.js, öğrenci isteklerini sunucu üzerinden iletir; öğrenci token'ları backend tarafından doğrulanır.
 
 `NODE_ENV=production` olduğunda e-postalar SMTP ile gönderilir. Diğer ortamlarda e-posta içeriği yerel konsola yazılır; geliştirme SMTP teslimatını doğrulamaz.

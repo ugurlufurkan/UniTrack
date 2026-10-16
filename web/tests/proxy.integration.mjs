@@ -5,6 +5,12 @@ import { spawn } from 'node:child_process';
 import { createFixture } from './fixtures/api.mjs';
 import { once } from 'node:events';
 
+function fetch(url, options = {}) {
+  const headers = new Headers(options.headers);
+  headers.set('x-forwarded-for', '203.0.113.10');
+  return globalThis.fetch(url, { ...options, headers });
+}
+
 test(
   'student gateway: auth, cookies, CSRF, CRUD, refresh and logout failures',
   { timeout: 60000 },
@@ -27,7 +33,12 @@ test(
       ],
       {
         cwd: process.cwd(),
-        env: { ...process.env, API_URL: `http://127.0.0.1:${apiPort}/api/v1` },
+        env: {
+          ...process.env,
+          WEB_PROXY_SECRET: 'fixture-web-proxy-secret-at-least-32-chars',
+          WEB_CLIENT_IP_HEADER: 'x-forwarded-for',
+          API_URL: `http://127.0.0.1:${apiPort}/api/v1`,
+        },
         stdio: 'pipe',
         windowsHide: true,
       },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveEndpoint, isSameOriginMutation } from '@/lib/api-policy.mjs';
+import { signGateway } from '@/lib/gateway';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
@@ -23,6 +24,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
 
   try {
     const headers = new Headers();
+    signGateway(request, headers, path);
     if (access && !policy.public) headers.set('Authorization', `Bearer ${access}`);
     headers.set('User-Agent', request.headers.get('user-agent') || 'UniTrack Web');
     let body: BodyInit | undefined;

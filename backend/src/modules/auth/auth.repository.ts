@@ -135,6 +135,7 @@ class AuthRepository {
         token: refreshTokens.token,
         expiresAt: refreshTokens.expiresAt,
         revokedAt: refreshTokens.revokedAt,
+        replacedBy: refreshTokens.replacedBy,
         isReused: refreshTokens.isReused,
         user: users,
       })
@@ -187,6 +188,7 @@ class AuthRepository {
     previous: string,
     next: string,
     expiresAt: Date,
+    rotatedAt: Date,
     deviceInfo?: {
       deviceName: string;
       deviceType: string;
@@ -197,7 +199,7 @@ class AuthRepository {
     return db.transaction(async (tx) => {
       const claimed = await tx
         .update(refreshTokens)
-        .set({ revokedAt: new Date(), replacedBy: hashRefreshToken(next) })
+        .set({ revokedAt: rotatedAt, replacedBy: hashRefreshToken(next) })
         .where(
           and(
             eq(refreshTokens.token, hashRefreshToken(previous)),

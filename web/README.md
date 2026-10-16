@@ -31,6 +31,8 @@ Hosting çalışma dizini `web/` olmalıdır. HTTPS kullan. `API_URL` çalışan
 
 ## Sayfalar
 
+Üretimde `WEB_PROXY_SECRET` backend ile aynı en az 32 karakterlik sunucu sırrı olmalıdır. `WEB_CLIENT_IP_HEADER`, güvenilen ingress'in ezerek sağladığı IP başlığıdır (Caddy kurulumunda `x-forwarded-for`). Next.js bu IP'yi zaman, yöntem ve yol ile HMAC imzalar; backend ham istemci başlıklarına güvenmez. Web sunucusunu ingress atlanarak internete açma. İstek sınırları API sunucuları arasında PostgreSQL'de paylaşılır; yeni migration'ları önce uygula.
+
 | Yol                                                    | İçerik                                                                                  |
 | ------------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | `/`                                                    | Genel bakış, günlük dersler, yaklaşan görevler ve hedef                                 |
@@ -55,7 +57,7 @@ Hosting çalışma dizini `web/` olmalıdır. HTTPS kullan. `API_URL` çalışan
 - `/api/student/*` yalnızca açıkça izin verilen API yollarını ve yöntemlerini iletir. Keyfi URL'ye proxy yapılamaz.
 - Veri değiştiren isteklerde aynı köken denetimi ve özel istek başlığı aranır.
 - API ve sayfa verileri kullanıcılar arasında önbelleğe alınmaz. Gerçek yetkilendirme backend'de yapılır.
-- Oturum yenileme aynı tarayıcıdaki sekmeler arasında Web Locks ile sıraya alınır. Next.js sunucusu aynı yenileme isteğini birleştirir. Çoklu Next.js instance kullanımında paylaşılan bir kilit/oturum deposu ayrıca değerlendirilmelidir.
+- Oturum yenileme sekmeler arasında Web Locks ile sıraya alınır. Backend, PostgreSQL üzerinde atomik yeniler; 10 saniyelik tekrar penceresinde farklı sunucular aynı aktif token'ı yeniden üretebilir. Sonraki tekrar kullanımlar oturumları iptal eder. Ham refresh token veritabanına yazılmaz.
 - Ağ, doğrulama, boş liste, yüklenme ve tekrar deneme durumları arayüzde gösterilir.
 - Gerçek zamanlı abonelik yoktur: veriler sayfa geçişinde, kayıt işlemi sonrasında ve sekmeye geri dönüldüğünde yenilenir. Web ve Android aynı kalıcı veriyi kullanır.
 - Web bildirimleri ve çevrimdışı web desteği eklenmemiştir. Android hatırlatıcıları kendi istemcisinde çalışmaya devam eder.

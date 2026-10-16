@@ -3,6 +3,8 @@ import {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
+  generateRotatedRefreshToken,
+  hashRefreshToken,
 } from "../../lib/jwt";
 import { authRepository } from "./auth.repository";
 import { AppError } from "../../shared/errors/AppError";
@@ -300,7 +302,17 @@ class AuthService {
     // either a replay of a stolen token or a rotated-out client retrying,
     // and in both cases the safe response is to kill every session for
     // this user rather than silently reject just this one request.
+    const recoverRotation = async (previous: typeof token) => {
+      if (!previous.revokedAt || !previous.replacedBy || Date.now() - previous.revokedAt.getTime() > 10000) return;
+      const replacement = generateRotatedRefreshToken(previous.user.id, refreshToken, previous.revokedAt);
+      if (hashRefreshToken(replacement) !== previous.replacedBy) return;
+      const active = await authRepository.findRefreshToken(replacement);
+      if (!active || active.revokedAt || active.expiresAt.getTime() <= Date.now()) return;
+      return { success: true, accessToken: generateAccessToken({ userId: previous.user.id, email: previous.user.email }), refreshToken: replacement };
+    };
     if (token.revokedAt) {
+      const recovered = await recoverRotation(token);
+      if (recovered) return recovered;
       await authRepository.markRefreshTokenAsReused(refreshToken);
       await authRepository.revokeAllRefreshTokens(token.user.id);
       await createAuditLog({
@@ -328,9 +340,8 @@ class AuthService {
       email: token.user.email,
     });
 
-    const newRefreshToken = generateRefreshToken({
-      userId: token.user.id,
-    });
+    const rotatedAt = new Date();
+    const newRefreshToken = generateRotatedRefreshToken(token.user.id, refreshToken, rotatedAt);
 
     // Claim and replace atomically; concurrent refreshes cannot both consume it.
     const rotated = await authRepository.rotateRefreshToken(
@@ -338,12 +349,19 @@ class AuthService {
       refreshToken,
       newRefreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+      rotatedAt,
       deviceInfo,
     );
-    if (!rotated)
+    if (!rotated) {
+      const previous = await authRepository.findRefreshToken(refreshToken);
+      if (previous) {
+        const recovered = await recoverRotation(previous);
+        if (recovered) return recovered;
+      }
       throw AppError.unauthorized(
         "Oturum yenilenemedi. Lütfen tekrar giriş yap.",
       );
+    }
 
     await createAuditLog({
       userId: token.user.id,

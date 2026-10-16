@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash } from 'node:crypto';
+import { signGateway } from '@/lib/gateway';
 import { isSameOriginMutation } from '@/lib/api-policy.mjs';
 import { apiBase, REFRESH_COOKIE, clearSession, jsonError, setSession } from '@/lib/server-session';
 
@@ -16,9 +17,11 @@ export async function POST(request: NextRequest) {
     let operation = pending.get(key);
     if (!operation) {
       operation = (async () => {
+        const headers = new Headers({ 'Content-Type': 'application/json' });
+        signGateway(request, headers, 'auth/refresh');
         const upstream = await fetch(`${apiBase()}/auth/refresh`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({ refreshToken: token }),
           cache: 'no-store',
           signal: AbortSignal.timeout(20000),

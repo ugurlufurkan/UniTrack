@@ -29,10 +29,13 @@ import { httpLogger } from "./config/logger";
 import logger from "./config/logger";
 import { rateLimiter } from "./shared/middleware/rateLimiter.middleware";
 import { env } from "./config/env";
+import { verifyGateway } from "./shared/middleware/gateway.middleware";
 
 const app = express();
 
 app.disable("x-powered-by");
+const trustedProxy = process.env.TRUST_PROXY;
+if (trustedProxy) app.set("trust proxy", /^\d+$/.test(trustedProxy) ? Number(trustedProxy) : trustedProxy.split(",").map(value => value.trim()));
 app.use(httpLogger);
 app.use(helmet({
   contentSecurityPolicy: env.NODE_ENV === "production" ? undefined : false,
@@ -82,6 +85,7 @@ app.use(hpp());
 app.use(cookieParser());
 
 // Rate limiting
+app.use(verifyGateway);
 app.use(rateLimiter);
 
 app.use(express.json({ limit: "10mb" }));

@@ -11,6 +11,12 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+export const rateLimitBuckets = pgTable("rate_limit_buckets", {
+  key: text("key").primaryKey(),
+  hits: integer("hits").notNull(),
+  resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+});
+
 /* =========================
    GRADE SCALE (harf notu aralığı)
    Örn: [{ letter: "AA", min: 90, point: 4.0 }, ...]

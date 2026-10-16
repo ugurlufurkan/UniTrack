@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { createHash, randomUUID } from "crypto";
+import { createHash, createHmac, randomUUID } from "crypto";
 import { env } from "../config/env";
 
 export interface AccessTokenPayload {
@@ -35,6 +35,15 @@ export function verifyAccessToken(
     token,
     env.JWT_SECRET
   ) as AccessTokenPayload;
+}
+
+// Reconstructable for a short retry window without persisting a raw token.
+// An unpredictable HMAC jti binds the replacement to the previous credential.
+export function generateRotatedRefreshToken(userId: string, previous: string, at: Date): string {
+  return jwt.sign({ userId, iat: Math.floor(at.getTime() / 1000) }, env.JWT_REFRESH_SECRET, {
+    expiresIn: "30d",
+    jwtid: createHmac("sha256", env.JWT_REFRESH_SECRET).update(previous).digest("hex"),
+  });
 }
 
 export function verifyRefreshToken(
