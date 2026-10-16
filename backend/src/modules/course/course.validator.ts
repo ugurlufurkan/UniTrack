@@ -27,7 +27,7 @@ export const createCourseSchema = z.object({
   name: z.string().trim()
     .min(2, "Ders adı en az 2 karakter olmalıdır.")
     .max(150, "Ders adı çok uzun."),
-  credit: z.number()
+  credit: z.number().int("Kredi tam sayı olmalıdır.")
     .min(1, "Kredi değeri en az 1 olmalıdır.")
     .max(30, "Kredi değeri çok yüksek."),
   components: z
@@ -45,7 +45,7 @@ export const updateCourseSchema = z.object({
     .min(2, "Ders adı en az 2 karakter olmalıdır.")
     .max(150, "Ders adı çok uzun.")
     .optional(),
-  credit: z.number()
+  credit: z.number().int("Kredi tam sayı olmalıdır.")
     .min(1, "Kredi değeri en az 1 olmalıdır.")
     .max(30, "Kredi değeri çok yüksek.")
     .optional(),

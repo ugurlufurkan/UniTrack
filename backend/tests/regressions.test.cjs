@@ -26,6 +26,14 @@ const { validatePasswordStrength } = require("../dist/lib/password");
 const { authService } = require("../dist/modules/auth/auth.service");
 const { authRepository } = require("../dist/modules/auth/auth.repository");
 
+test("fractional credits are rejected before reaching integer database columns", () => {
+  const { createCourseSchema, updateCourseSchema } = require("../dist/modules/course/course.validator");
+  const input = { semesterId: "11111111-1111-4111-8111-111111111111", name: "Matematik", credit: 3.5, components: [{ name: "Final", weight: 100, score: 80 }] };
+  assert.equal(createCourseSchema.safeParse(input).success, false);
+  assert.equal(updateCourseSchema.safeParse({ credit: 3.5 }).success, false);
+  assert.equal(createCourseSchema.safeParse({ ...input, credit: 3 }).success, true);
+});
+
 test("same-second refresh tokens are unique and verify", () => {
   const tokens = Array.from({ length: 30 }, () =>
     generateRefreshToken({ userId: "student" }),

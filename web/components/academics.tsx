@@ -208,7 +208,7 @@ function CourseEditor({ course, onClose }: { course: Course | null; onClose: () 
               type="number"
               min={1}
               max={30}
-              step="0.5"
+              step="1"
               defaultValue={course?.credit || 3}
               required
             />
