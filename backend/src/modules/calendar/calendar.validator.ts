@@ -16,6 +16,14 @@ const statusEnum = z.enum(["pending", "in_progress", "completed", "cancelled"]);
 
 const recurrenceEnum = z.enum(["none", "daily", "weekly", "monthly"]);
 
+const filterDate = z.union([z.iso.date(), z.iso.datetime({ offset: true })]);
+export const eventFiltersSchema = z.object({
+  startDate: filterDate.optional(),
+  endDate: filterDate.optional(),
+  type: eventTypeEnum.optional(),
+}).refine(value => !value.startDate || !value.endDate || new Date(value.startDate) <= new Date(value.endDate), { message: "Tarih aralığı ters olamaz.", path: ["endDate"] });
+export const upcomingEventsQuerySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).default(20) });
+
 export const eventNotificationSchema = z.object({
   id: z.string().uuid().nullable().optional(),
   daysBefore: z.number().int().min(0).max(365).default(0),

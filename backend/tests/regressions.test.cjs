@@ -118,6 +118,15 @@ test("ungraded courses remain ungraded; weighted scores and zero grades are calc
   assert.equal(calculateGrade([{ weight: 100, score: 0 }]).letterGrade, "FF");
 });
 
+test("calendar query ranges and limits reject invalid or unbounded input", () => {
+  const { eventFiltersSchema, upcomingEventsQuerySchema } = require("../dist/modules/calendar/calendar.validator");
+  for (const limit of ["broken", "-1", "0", "100000", "1.5"]) assert.equal(upcomingEventsQuerySchema.safeParse({ limit }).success, false);
+  assert.equal(upcomingEventsQuerySchema.parse({}).limit, 20);
+  assert.equal(upcomingEventsQuerySchema.parse({ limit: "100" }).limit, 100);
+  for (const filters of [{ startDate: "broken" }, { endDate: "2026-02-30" }, { startDate: "2026-10-20", endDate: "2026-10-10" }, { type: "invalid" }]) assert.equal(eventFiltersSchema.safeParse(filters).success, false);
+  assert.equal(eventFiltersSchema.safeParse({ startDate: "2026-10-17T09:00:00+03:00", endDate: "2026-10-17T10:00:00+03:00" }).success, true);
+});
+
 test("short passwords cannot pass strength validation by including four character categories", () => {
   assert.equal(validatePasswordStrength("Aa1!").isValid, false);
   assert.equal(validatePasswordStrength("Strong123!").isValid, true);

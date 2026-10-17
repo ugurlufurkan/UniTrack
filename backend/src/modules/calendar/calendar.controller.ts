@@ -1,16 +1,11 @@
 import { Request, Response } from "express";
 
 import * as calendarService from "./calendar.service";
+import { eventFiltersSchema, upcomingEventsQuerySchema } from "./calendar.validator";
 
 export const getAllEvents = async (req: Request, res: Response) => {
   const userId = req.user!.userId;
-  const { startDate, endDate, type } = req.query;
-
-  const events = await calendarService.getAllEvents(userId, {
-    startDate: startDate as string | undefined,
-    endDate: endDate as string | undefined,
-    type: type as string | undefined,
-  });
+  const events = await calendarService.getAllEvents(userId, eventFiltersSchema.parse(req.query));
 
   res.json(events);
 };
@@ -24,7 +19,7 @@ export const getEventById = async (req: Request, res: Response) => {
 
 export const getUpcomingEvents = async (req: Request, res: Response) => {
   const userId = req.user!.userId;
-  const limit = req.query.limit ? Number(req.query.limit) : 20;
+  const { limit } = upcomingEventsQuerySchema.parse(req.query);
   const events = await calendarService.getUpcomingEvents(userId, limit);
   res.json(events);
 };
