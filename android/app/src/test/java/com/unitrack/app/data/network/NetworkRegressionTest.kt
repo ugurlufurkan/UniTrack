@@ -140,4 +140,23 @@ class NetworkRegressionTest {
         assertNull(auth.authenticate(null, response))
         assertEquals("another-refresh", credentials.refresh)
     }
+
+    @Test fun retryLimitCannotInvalidateAnAccountChangedDuringTheCredentialCheck() {
+        var refresh: String? = "old-refresh"
+        val credentials = object : SessionCredentials {
+            override fun refreshToken() = refresh
+            override fun accessToken(): String { refresh = "another-refresh"; return OLD_ACCESS }
+            override fun saveIfCurrent(expectedRefresh: String, access: String, refresh: String) = false
+            override fun clearIfCurrent(expectedRefresh: String?): Boolean {
+                if (refresh != expectedRefresh) return false
+                refresh = null
+                return true
+            }
+        }
+        val auth = TokenAuthenticator(credentials, { error("refresh must not run") }, { fail("another account must remain signed in") })
+        val request = Request.Builder().url("https://example.invalid/courses").header("Authorization", "Bearer $OLD_ACCESS").build()
+        fun response(prior: Response? = null) = Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(401).message("Unauthorized").priorResponse(prior).build()
+        assertNull(auth.authenticate(null, response(response(response()))))
+        assertEquals("another-refresh", refresh)
+    }
 }

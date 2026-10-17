@@ -53,8 +53,9 @@ class TokenAuthenticator internal constructor(
         // Aynı istek zaten birkaç kez retry edildiyse (yeni token da 401 alıyorsa) pes et.
         // Böylece bozuk bir refresh döngüsü sonsuza kadar dönmez.
         if (responseCount(response) >= 3) {
+            val expectedRefresh = credentials.refreshToken()
             if (credentials.accessToken() == response.request.header("Authorization")?.removePrefix("Bearer "))
-                forceLogout(credentials.refreshToken())
+                forceLogout(expectedRefresh)
             return null
         }
 
