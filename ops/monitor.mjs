@@ -38,7 +38,7 @@ export async function cycle() {
     if (next.pending && process.env.ENABLE_EXTERNAL_ALERTS === 'true' && process.env.ALERT_WEBHOOK_URL) {
       const event = { service: name, status: next.pending, timestamp: new Date().toISOString() };
         try {
-          const response = await fetch(process.env.ALERT_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...event, text: `UniTrack ${name}: ${next.alert}` }), signal: AbortSignal.timeout(5000) });
+          const response = await fetch(process.env.ALERT_WEBHOOK_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...event, text: `UniTrack ${name}: ${event.status}` }), signal: AbortSignal.timeout(5000) });
           if (!response.ok) throw new Error('Delivery rejected');
           next.pending = null;
         } catch { console.error(JSON.stringify({ service: name, error: 'Alert delivery failed; retry pending' })); }
