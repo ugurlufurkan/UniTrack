@@ -72,3 +72,17 @@ test("changing a password invalidates outstanding reset links and stale login cr
     await assert.rejects(authRepository.saveRefreshToken(user.id, generateRefreshToken({ userId: user.id }), new Date(Date.now() + 60000), undefined, password));
   } finally { email.sendPasswordResetEmail = original; await client.close(); }
 });
+
+test("email delivery failures do not report a successful reset or verification message", async () => {
+  const { db, client, schema } = await createDatabase();
+  require("../dist/db").db = db;
+  const email = require("../dist/lib/email");
+  const originals = { reset: email.sendPasswordResetEmail, verify: email.sendVerificationEmail };
+  email.sendPasswordResetEmail = email.sendVerificationEmail = async () => false;
+  const { authService } = require("../dist/modules/auth/auth.service");
+  try {
+    const [user] = await db.insert(schema.users).values({ email: "delivery@example.invalid", name: "Delivery" }).returning();
+    await assert.rejects(authService.forgotPassword(user.email), error => error.statusCode === 503);
+    await assert.rejects(authService.requestEmailVerification(user.id), error => error.statusCode === 503);
+  } finally { email.sendPasswordResetEmail = originals.reset; email.sendVerificationEmail = originals.verify; await client.close(); }
+});

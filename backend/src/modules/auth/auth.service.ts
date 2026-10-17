@@ -494,7 +494,8 @@ class AuthService {
       emailVerificationExpiresAt: expiresAt,
     });
 
-    await sendVerificationEmail(user.email, token);
+    if (!await sendVerificationEmail(user.email, token))
+      throw new AppError("Doğrulama e-postası gönderilemedi. Biraz sonra tekrar dene.", 503);
 
     await createAuditLog({
       userId,
@@ -549,7 +550,8 @@ class AuthService {
       passwordResetExpiresAt: expiresAt,
     });
 
-    await sendPasswordResetEmail(user.email, token);
+    if (!await sendPasswordResetEmail(user.email, token))
+      throw new AppError("Şifre sıfırlama e-postası gönderilemedi. Biraz sonra tekrar dene.", 503);
 
     await createAuditLog({
       userId: user.id,
