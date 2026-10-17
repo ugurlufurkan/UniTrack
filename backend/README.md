@@ -78,6 +78,7 @@ Migration'lar sunucu başlarken otomatik çalıştırılmaz; yayın adımında a
 | `transcript`, `transcript-import`   | Transkript özeti, PDF önizleme ve onaylanan verilerin içe aktarılması             |
 | `settings`, `export`                | Hesaba bağlı tercihler ve JSON veri indirme                                       |
 | `content`                           | Duyuru, SSS, ipucu ve herkese açık yasal metinler                                 |
+| `push`                              | İzinle açılan cihaz abonelikleri, kalıcı hatırlatma kuyruğu ve worker sağlığı     |
 
 PDF içe aktarma en fazla 10 MB PDF kabul eder. Farklı üniversite biçimlerinde sonuç değişebilir; kullanıcı kaydetmeden önce önizlemeyi düzenleyip onaylar.
 
@@ -104,7 +105,11 @@ npm test
 npm audit
 ```
 
-`npm test` önce TypeScript derlemesini, ardından izole regresyon testlerini çalıştırır. Testler PostgreSQL'e bağlanmaz. Giriş doğrulaması, tarih dönüşümleri, not hesapları, saat aralıkları, şifre uzunluğu, Google hesap eşleme, token benzersizliği ve tek kullanımlık bağlantıların tüketilmesi kontrol edilir.
+`npm test` önce TypeScript derlemesini, ardından izole regresyon testlerini çalıştırır. Dış veritabanına bağlanmaz; SQL gerektiren testler PGlite içindeki PostgreSQL motorunu kullanır. Migration, atomik içe aktarma, ortak istek sınırları, oturum iptali, bildirim kuyruğu, hesap eşleme ve tek kullanımlık bağlantılar kontrol edilir.
+
+Gerçek PostgreSQL'de eşzamanlı işlemler için `TEST_DATABASE_URL` değerini yalnızca test için ayrılmış, adı `unitrack_test` veya `unitrack_test_` ile başlayan veritabanına ayarlayıp `npm run test:postgres` çalıştır. Migration'lar bu veritabanına uygulanır; testin kendi geçici hesabı sonunda silinir. [Docker kabul aracı](../ops/README.md#yayın-kabulü) bu veritabanını otomatik oluşturup kaldırır.
+
+Web bildirimleri için VAPID anahtarları ve ayrı worker gerekir; [kurulum, tekrar denemeler ve teslimat sınırları](../ops/README.md#tarayıcı-hatırlatmaları) yayın kılavuzundadır. Anahtar üretimi `npm run push:keys`, derlenmiş worker'ı başlatma `npm run push:worker` komutudur.
 
 Çalışan yerel API ve yapılandırılmış PostgreSQL ile kabul kontrolü:
 

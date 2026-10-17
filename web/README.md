@@ -89,7 +89,7 @@ npm audit
 
 Geliştirme
 bağımlılıklarının tam taramasında `eslint-config-next → fast-glob → braces`
-zinciri için GHSA-vfj7-8cjw-p6xm uyarısı vardır. 15 Ekim 2026 itibarıyla
+zinciri için GHSA-vfj7-8cjw-p6xm uyarısı vardır. 17 Ekim 2026 itibarıyla
 [yayımlanmış düzeltme yoktur](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
 Bu zincir lint aracında bulunur ve üretim bağımlılıklarına dahil değildir;
 lint işlemini güvenilen depo dosyaları ve sabit glob desenleriyle çalıştır.

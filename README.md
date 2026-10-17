@@ -20,7 +20,7 @@ _Ekran görüntüsü örnek test verileriyle hazırlanmıştır. [Mobil web gör
 | GANO ve istatistikler | Ortalamanı incele, olası notları simüle et ve dönemler arasındaki değişimi gör.                         |
 | Transkript            | PDF yükle, çıkarılan verileri gözden geçirip içe aktar; akademik özetini yazdır veya PDF olarak kaydet. |
 | Hesap yönetimi        | Şifreni ve oturumlarını yönet; verilerini JSON olarak indir veya hesabını sil.                          |
-| Web deneyimi          | Masaüstü ve mobil ekranlara uyumlu arayüz, açık/koyu tema, duyurular ve SSS.                            |
+| Web deneyimi          | Mobil uyumlu arayüz, tema, ana ekrana yükleme, izinle çevrimdışı ders özeti ve etkinlik hatırlatmaları. |
 
 E-posta ile kayıt/giriş, şifre sıfırlama ve e-posta doğrulama desteklenir. Google ile giriş için OAuth yapılandırması gerekir. PDF çözümleme desteklenen metin tabanlı belgelerle çalışır; içe aktarmadan önce önizlemeyi kontrol etmek gerekir.
 
@@ -95,9 +95,20 @@ npm run typecheck
 npm run build
 npm run test:integration
 npm run format:check
+npm run test:e2e
 ```
 
-Backend testleri TypeScript derlemesini ve izole regresyon kontrollerini çalıştırır. Web entegrasyon testi yerel bir test API'si ve Next.js üretim sunucusu açarak oturum, çerez, CSRF, kayıt işlemleri ve token yenilemeyi doğrular. Bu testler gerçek öğrenci verilerine bağlanmaz.
+Tarayıcı testinden önce `web/` içinde bir kez `npx playwright install chromium` çalıştır. Backend testleri TypeScript derlemesini ve izole PostgreSQL motorunda migration, içe aktarma, oturum ve bildirim regresyonlarını kontrol eder. Web proxy testi çerez, CSRF ve token yenilemeyi; Playwright öğrenci işlemleri, mobil görünüm, çevrimdışı çıkış ve bildirim izinlerini doğrular. Bu testler gerçek öğrenci verilerine bağlanmaz.
+
+Docker ile üretim imajları, gerçek PostgreSQL ve şifreli yedek/geri yükleme kontrolü, depo kökünde:
+
+```powershell
+node ops/tests/production.integration.mjs --build
+node --test ops/monitor.test.mjs
+node ops/tests/backup.integration.mjs
+```
+
+[GitHub Actions](./.github/workflows/ci.yml), backend/PostgreSQL, web/tarayıcı, Android test/lint ve üretim/yedek kontrollerini her push ve pull request'te çalıştırır. Android kontrolleri için [mobil kılavuza](./android/README.md#kontroller) bak. Bunlar canlı DNS, Google OAuth, SMTP veya gerçek tarayıcı push teslimatının kabul testi yerine geçmez.
 
 Çalışan yerel backend ve yapılandırılmış PostgreSQL ile kabul kontrolü için `backend/` içinde:
 
