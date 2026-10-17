@@ -5,6 +5,7 @@ import {
   verifyRefreshToken,
   generateRotatedRefreshToken,
   hashRefreshToken,
+  hashRecoveryToken,
 } from "../../lib/jwt";
 import { authRepository } from "./auth.repository";
 import { AppError } from "../../shared/errors/AppError";
@@ -178,6 +179,7 @@ class AuthService {
       refreshToken,
       new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
       deviceInfo,
+      user.password,
     );
     const accessToken = generateAccessToken({ userId: user.id, email: user.email, sessionId });
 
@@ -488,7 +490,7 @@ class AuthService {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
 
     await authRepository.updateUser(userId, {
-      emailVerificationToken: token,
+      emailVerificationToken: hashRecoveryToken(token),
       emailVerificationExpiresAt: expiresAt,
     });
 
@@ -508,24 +510,11 @@ class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await authRepository.findByEmailVerificationToken(token);
+    const user = await authRepository.consumeEmailVerification(token);
 
     if (!user) {
       throw AppError.badRequest("Geçersiz veya süresi dolmuş token.");
     }
-
-    if (
-      !user.emailVerificationExpiresAt ||
-      user.emailVerificationExpiresAt < new Date()
-    ) {
-      throw AppError.badRequest("Token süresi dolmuş.");
-    }
-
-    await authRepository.updateUser(user.id, {
-      isEmailVerified: true,
-      emailVerificationToken: null,
-      emailVerificationExpiresAt: null,
-    });
 
     await createAuditLog({
       userId: user.id,
@@ -556,7 +545,7 @@ class AuthService {
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60); // 1 hour
 
     await authRepository.updateUser(user.id, {
-      passwordResetToken: token,
+      passwordResetToken: hashRecoveryToken(token),
       passwordResetExpiresAt: expiresAt,
     });
 
@@ -598,14 +587,8 @@ class AuthService {
 
     const hashedPassword = await hashPassword(newPassword);
 
-    await authRepository.updateUser(user.id, {
-      password: hashedPassword,
-      passwordResetToken: null,
-      passwordResetExpiresAt: null,
-    });
-
-    // Revoke all refresh tokens for security
-    await authRepository.revokeAllRefreshTokens(user.id);
+    if (!await authRepository.consumePasswordReset(user.id, token, hashedPassword))
+      throw AppError.badRequest("Geçersiz veya süresi dolmuş token.");
 
     await createAuditLog({
       userId: user.id,
@@ -649,12 +632,8 @@ class AuthService {
 
     const hashedPassword = await hashPassword(newPassword);
 
-    await authRepository.updateUser(userId, {
-      password: hashedPassword,
-    });
-
-    // Revoke all refresh tokens for security
-    await authRepository.revokeAllRefreshTokens(userId);
+    if (!await authRepository.changePasswordIfCurrent(userId, user.password, hashedPassword))
+      throw AppError.conflict("Şifre başka bir işlemde değişti. Lütfen tekrar giriş yap.");
 
     await createAuditLog({
       userId,

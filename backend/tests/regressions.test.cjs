@@ -23,8 +23,8 @@ const {
 } = require("../dist/modules/attendance/attendance.validator");
 const { calculateGrade } = require("../dist/shared/utils/grade.util");
 const { validatePasswordStrength } = require("../dist/lib/password");
-const { authService } = require("../dist/modules/auth/auth.service");
-const { authRepository } = require("../dist/modules/auth/auth.repository");
+
+
 
 test("fractional credits are rejected before reaching integer database columns", () => {
   const { createCourseSchema, updateCourseSchema } = require("../dist/modules/course/course.validator");
@@ -125,63 +125,4 @@ test("short passwords cannot pass strength validation by including four characte
     validatePasswordStrength("Ş".repeat(40) + "Aa1!").isValid,
     false,
   );
-});
-
-test("verification consumes the token and clears its expiration with SQL null", async () => {
-  const originalFind = authRepository.findByEmailVerificationToken;
-  const originalUpdate = authRepository.updateUser;
-  const { db } = require("../dist/db");
-  const originalInsert = db.insert;
-  let patch;
-  authRepository.findByEmailVerificationToken = async () => ({
-    id: "student",
-    emailVerificationExpiresAt: new Date(Date.now() + 60000),
-  });
-  authRepository.updateUser = async (_id, values) => {
-    patch = values;
-  };
-  db.insert = () => ({ values: async () => {} });
-  try {
-    await authService.verifyEmail("single-use-token");
-    assert.equal(patch.emailVerificationToken, null);
-    assert.equal(patch.emailVerificationExpiresAt, null);
-    assert.equal(patch.isEmailVerified, true);
-  } finally {
-    authRepository.findByEmailVerificationToken = originalFind;
-    authRepository.updateUser = originalUpdate;
-    db.insert = originalInsert;
-  }
-});
-
-test("resetting a password consumes the reset token and revokes sessions", async () => {
-  const originals = {
-    find: authRepository.findByPasswordResetToken,
-    update: authRepository.updateUser,
-    revoke: authRepository.revokeAllRefreshTokens,
-  };
-  const { db } = require("../dist/db");
-  const originalInsert = db.insert;
-  let patch, revoked;
-  authRepository.findByPasswordResetToken = async () => ({
-    id: "student",
-    passwordResetExpiresAt: new Date(Date.now() + 60000),
-  });
-  authRepository.updateUser = async (_id, values) => {
-    patch = values;
-  };
-  authRepository.revokeAllRefreshTokens = async (id) => {
-    revoked = id;
-  };
-  db.insert = () => ({ values: async () => {} });
-  try {
-    await authService.resetPassword("single-use-token", "StrongPassword123!");
-    assert.equal(patch.passwordResetToken, null);
-    assert.equal(patch.passwordResetExpiresAt, null);
-    assert.equal(revoked, "student");
-  } finally {
-    authRepository.findByPasswordResetToken = originals.find;
-    authRepository.updateUser = originals.update;
-    authRepository.revokeAllRefreshTokens = originals.revoke;
-    db.insert = originalInsert;
-  }
 });

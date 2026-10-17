@@ -1,7 +1,8 @@
 import { and, eq, isNull, gt, lt, sql } from "drizzle-orm";
 import { db } from "../../db";
 import { refreshTokens, users, pushSubscriptions } from "../../db/schema";
-import { hashRefreshToken } from "../../lib/jwt";
+import { hashRefreshToken, hashRecoveryToken } from "../../lib/jwt";
+import { AppError } from "../../shared/errors/AppError";
 
 class AuthRepository {
   async findByGoogleId(googleId: string) {
@@ -43,7 +44,7 @@ class AuthRepository {
     const result = await db
       .select()
       .from(users)
-      .where(eq(users.emailVerificationToken, token));
+      .where(eq(users.emailVerificationToken, hashRecoveryToken(token)));
 
     return result[0];
   }
@@ -52,7 +53,7 @@ class AuthRepository {
     const result = await db
       .select()
       .from(users)
-      .where(eq(users.passwordResetToken, token));
+      .where(eq(users.passwordResetToken, hashRecoveryToken(token)));
 
     return result[0];
   }
@@ -102,6 +103,34 @@ class AuthRepository {
     return result[0];
   }
 
+  async consumeEmailVerification(token: string) {
+    const [user] = await db.update(users).set({ isEmailVerified: true, emailVerificationToken: null, emailVerificationExpiresAt: null, updatedAt: new Date() })
+      .where(and(eq(users.emailVerificationToken, hashRecoveryToken(token)), gt(users.emailVerificationExpiresAt, new Date())))
+      .returning({ id: users.id });
+    return user;
+  }
+
+  async consumePasswordReset(userId: string, token: string, password: string) {
+    return db.transaction(async tx => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("no key update");
+      const [user] = await tx.update(users).set({ password, passwordResetToken: null, passwordResetExpiresAt: null, updatedAt: new Date() })
+        .where(and(eq(users.id, userId), eq(users.passwordResetToken, hashRecoveryToken(token)), gt(users.passwordResetExpiresAt, new Date())))
+        .returning({ id: users.id });
+      if (user) await tx.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.userId, userId));
+      return user;
+    });
+  }
+
+  async changePasswordIfCurrent(userId: string, previousHash: string, password: string) {
+    return db.transaction(async tx => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("no key update");
+      const [user] = await tx.update(users).set({ password, passwordResetToken: null, passwordResetExpiresAt: null, updatedAt: new Date() })
+        .where(and(eq(users.id, userId), eq(users.password, previousHash))).returning({ id: users.id });
+      if (user) await tx.update(refreshTokens).set({ revokedAt: new Date() }).where(eq(refreshTokens.userId, userId));
+      return user;
+    });
+  }
+
   async saveRefreshToken(
     userId: string,
     token: string,
@@ -112,17 +141,22 @@ class AuthRepository {
       userAgent?: string;
       ipAddress?: string;
     },
+    expectedPassword?: string | null,
   ) {
-    const [session] = await db.insert(refreshTokens).values({
-      userId,
-      token: hashRefreshToken(token),
-      expiresAt,
-      deviceName: deviceInfo?.deviceName,
-      deviceType: deviceInfo?.deviceType,
-      userAgent: deviceInfo?.userAgent,
-      ipAddress: deviceInfo?.ipAddress,
-    }).returning({ id: refreshTokens.id });
-    return session.id;
+    return db.transaction(async tx => {
+      const [user] = await tx.select({ id: users.id, password: users.password }).from(users).where(eq(users.id, userId)).for("no key update");
+      if (!user || (expectedPassword !== undefined && user.password !== expectedPassword)) throw AppError.unauthorized("Hesap bilgileri değişti. Lütfen tekrar giriş yap.");
+      const [session] = await tx.insert(refreshTokens).values({
+        userId,
+        token: hashRefreshToken(token),
+        expiresAt,
+        deviceName: deviceInfo?.deviceName,
+        deviceType: deviceInfo?.deviceType,
+        userAgent: deviceInfo?.userAgent,
+        ipAddress: deviceInfo?.ipAddress,
+      }).returning({ id: refreshTokens.id });
+      return session.id;
+    });
   }
 
   // Returns the token row regardless of revoked/expired status — the caller
@@ -167,8 +201,11 @@ class AuthRepository {
 
   private async revokeChain(initialHash: string, ownerId?: string) {
     return db.transaction(async tx => {
+      const [initial] = await tx.select({ userId: refreshTokens.userId }).from(refreshTokens).where(eq(refreshTokens.token, initialHash));
+      if (!initial || (ownerId && initial.userId !== ownerId)) return 0;
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, initial.userId)).for("no key update");
       let current: string | null = initialHash;
-      let owner = ownerId;
+      let owner = initial.userId;
       let count = 0;
       const visited = new Set<string>();
       while (current && !visited.has(current) && count < 128) {
@@ -192,12 +229,13 @@ class AuthRepository {
   }
 
   async revokeAllRefreshTokens(userId: string) {
-    await db
-      .update(refreshTokens)
-      .set({
-        revokedAt: new Date(),
-      })
-      .where(eq(refreshTokens.userId, userId));
+    await db.transaction(async tx => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("no key update");
+      await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date() })
+        .where(eq(refreshTokens.userId, userId));
+    });
   }
 
   async rotateRefreshToken(
@@ -214,6 +252,7 @@ class AuthRepository {
     },
   ) {
     return db.transaction(async (tx) => {
+      await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for("no key update");
       const claimed = await tx
         .update(refreshTokens)
         .set({ revokedAt: rotatedAt, replacedBy: hashRefreshToken(next) })

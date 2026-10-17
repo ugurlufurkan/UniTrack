@@ -10,7 +10,7 @@ Object.assign(process.env, { DATABASE_URL: connectionString, NODE_ENV: "test", J
 const { Pool } = require("pg");
 const { drizzle } = require("drizzle-orm/node-postgres");
 const { migrate } = require("drizzle-orm/node-postgres/migrator");
-const { eq } = require("drizzle-orm");
+const { eq, and, isNull } = require("drizzle-orm");
 const schema = require("../dist/db/schema");
 
 test("physical PostgreSQL migrations and concurrent imports/rotations/push claims", async () => {
@@ -44,6 +44,33 @@ test("physical PostgreSQL migrations and concurrent imports/rotations/push claim
     assert.equal(deliveries, 1, "replicas must claim a reminder only once");
     await runPushCycle(sender);
     assert.equal(deliveries, 1, "sent jobs must remain terminal");
+    const gate = await pool.connect();
+    const operations = [];
+    try {
+      await gate.query("BEGIN");
+      await gate.query("SELECT id FROM refresh_tokens WHERE id = $1 FOR UPDATE", [session.id]);
+      const waitForLocks = async count => {
+        const deadline = Date.now() + 5000;
+        while (Date.now() < deadline) {
+          const result = await pool.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()");
+          if (result.rows[0].n >= count) return;
+          await new Promise(resolve => setTimeout(resolve, 20));
+        }
+        throw new Error(`Expected ${count} concurrent lock waiters`);
+      };
+      operations.push(authService.refresh(rotations[0].refreshToken));
+      await waitForLocks(1);
+      operations.push(authService.logoutAll(user.id));
+      await waitForLocks(2);
+      await gate.query("COMMIT");
+      await Promise.all(operations);
+      const active = await db.select().from(schema.refreshTokens).where(and(eq(schema.refreshTokens.userId, user.id), isNull(schema.refreshTokens.revokedAt)));
+      assert.equal(active.length, 0, "logout-all must include a concurrently rotated descendant");
+    } finally {
+      await gate.query("ROLLBACK");
+      gate.release();
+      await Promise.allSettled(operations);
+    }
   } finally {
     if (user) await db.delete(schema.users).where(eq(schema.users.id, user.id));
     await pool.end();

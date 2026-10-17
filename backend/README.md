@@ -88,6 +88,8 @@ PDF içe aktarma en fazla 10 MB PDF kabul eder. Farklı üniversite biçimlerind
 
 Access JWT, aktif cihaz oturumunun kimliğini taşır. Her özel istekte oturumun hâlâ açık olduğu veritabanından doğrulanır; cihazı kapatma/çıkış için JWT'nin 15 dakikalık süresinin dolması beklenmez. Çıkış, eşzamanlı yenilemeyle oluşmuş devam token'larını da satır kilitleriyle iptal eder. Önceki sürümdeki oturum kimliği olmayan token'lar ortak refresh akışıyla yenilenir.
 
+Şifre sıfırlama ve e-posta doğrulama anahtarları özetlenerek saklanır ve koşullu SQL güncellemesiyle yalnızca bir kez tüketilir. Şifre değişikliği eski sıfırlama bağlantılarını da geçersiz kılar. Şifre güncelleme, oturum açma/yenileme ve tüm cihazlardan çıkış aynı hesap kilidini kullanır. Bu güvenlik güncellemesinden önce oluşturulmuş doğrulama/sıfırlama bağlantıları için yeni bağlantı istenmelidir.
+
 Üretimde web ve API için aynı `WEB_PROXY_SECRET` tanımlanır. Web, yalnızca güvenilen ingress'in sağladığı istemci IP'sini imzalar; backend zaman damgasını, yöntemi ve yolu doğrulamadan bu kimliği kullanmaz. `TRUST_PROXY` yalnızca gerçekten kapalı ingress topolojisinde yapılandırılmalıdır. Doğrudan gelen `X-Forwarded-For` / `X-Real-IP` başlıkları oturum kayıtlarında kullanılmaz.
 
 İstek sayaçları `rate_limit_buckets` tablosunda hash anahtarlarla API sunucuları arasında paylaşılır. Yeni migration yayın öncesinde uygulanmalıdır. Refresh tekrarları 10 saniye boyunca aynı aktif replacement token ile cevaplanır; bu pencere dışında tekrar kullanım tüm oturumları iptal eder. Bu yaklaşım ağ tekrarlarında ve çoklu sunucuda yanlış oturum kapatmalarını önler; veritabanında ham refresh token saklanmaz.
