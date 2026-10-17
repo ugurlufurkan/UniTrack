@@ -12,8 +12,8 @@ const swaggerDocument = {
   },
 
   servers: [
+    { url: "/api/v1", description: "Current server" },
     { url: "http://localhost:5000/api/v1", description: "Local (versioned)" },
-    { url: "https://api.unitrack.app/api/v1", description: "Production" },
   ],
 
   tags: [
