@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveEndpoint, isSameOriginMutation } from '@/lib/api-policy.mjs';
 import { signGateway } from '@/lib/gateway';
+import { BodyLimitError, readBoundedBody } from '@/lib/request-body.mjs';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
@@ -33,9 +34,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
         headers.set('Content-Type', 'application/json');
         body = JSON.stringify({ refreshToken: request.cookies.get(REFRESH_COOKIE)?.value || '' });
       } else {
-        const buffer = await request.arrayBuffer();
-        if (buffer.byteLength > 11 * 1024 * 1024)
-          return jsonError('Dosya boyutu 10 MB sınırını aşıyor.', 413);
+        const buffer = await readBoundedBody(request, 11 * 1024 * 1024);
         const contentType = request.headers.get('content-type');
         if (contentType) headers.set('Content-Type', contentType);
         if (buffer.byteLength) body = buffer;
@@ -68,7 +67,9 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
     if (requestId) response.headers.set('X-Request-ID', requestId);
     if (disposition) response.headers.set('Content-Disposition', disposition);
     return response;
-  } catch {
+  } catch (error) {
+    if (error instanceof BodyLimitError)
+      return jsonError('Dosya boyutu 10 MB sınırını aşıyor.', 413);
     const response = jsonError('Sunucuya ulaşılamıyor. Biraz sonra tekrar dene.', 503);
     if (isLogout) clearSession(response);
     return response;
