@@ -299,3 +299,28 @@ test('student accounts cannot read or modify each others academic records or ses
     await otherContext.close();
   }
 });
+
+test('signing out also removes private screens from another open tab', async ({
+  page,
+  context,
+}) => {
+  await page.goto('/register');
+  await page.getByLabel('Ad soyad').fill('Tabs Öğrenci');
+  await page.getByLabel('E-posta adresi').fill(`tabs-${Date.now()}@example.invalid`);
+  await page.getByLabel('Şifre', { exact: true }).fill('UniTrackTest123!');
+  await page.getByLabel('Şifre tekrar', { exact: true }).fill('UniTrackTest123!');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Hesabımı oluştur' }).click();
+  await expect(page).toHaveURL('/');
+  const other = await context.newPage();
+  try {
+    await other.goto('/');
+    await expect(other.getByRole('heading', { name: /Merhaba/ })).toBeVisible();
+    await page.getByRole('button', { name: 'Çıkış yap', exact: true }).click();
+    await expect(page).toHaveURL('/login');
+    await expect(other).toHaveURL(/\/login/);
+    await expect(other.getByRole('heading', { name: /Merhaba/ })).toHaveCount(0);
+  } finally {
+    await other.close();
+  }
+});

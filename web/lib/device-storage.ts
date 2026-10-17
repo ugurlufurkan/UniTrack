@@ -4,6 +4,21 @@ import type { Course, Semester, User } from './types';
 const NAME = 'unitrack-device';
 const STORE = 'preferences';
 const LOGOUT = 'unitrack:logout-pending';
+export const SESSION_REVISION_KEY = 'unitrack:session-revision';
+let fallbackRevision = '';
+export function sessionRevision() {
+  try {
+    return localStorage.getItem(SESSION_REVISION_KEY) || fallbackRevision;
+  } catch {
+    return fallbackRevision;
+  }
+}
+export function advanceSessionRevision() {
+  fallbackRevision = crypto.randomUUID();
+  try {
+    localStorage.setItem(SESSION_REVISION_KEY, fallbackRevision);
+  } catch {}
+}
 export type OfflineSnapshot = {
   owner: string;
   savedAt: number;
@@ -134,21 +149,29 @@ export function clearPendingLogout() {
 let flushing: Promise<boolean> | null = null;
 export function flushPendingLogout() {
   if (!hasPendingLogout()) return Promise.resolve(true);
-  if (!flushing)
-    flushing = fetch('/api/student/auth/logout', {
-      method: 'POST',
-      headers: { 'X-UniTrack-Web': '1' },
-    })
-      .then((response) => {
-        if (response.status < 500 && response.status !== 429) {
-          clearPendingLogout();
-          return true;
-        }
-        return false;
-      })
+  if (!flushing) {
+    const revision = sessionRevision();
+    const operation = async () => {
+      if (revision !== sessionRevision()) return false;
+      const response = await fetch('/api/student/auth/logout', {
+        method: 'POST',
+        headers: { 'X-UniTrack-Web': '1' },
+      });
+      if (response.status < 500 && response.status !== 429) {
+        clearPendingLogout();
+        advanceSessionRevision();
+        return true;
+      }
+      return false;
+    };
+    flushing = (async () =>
+      await (navigator.locks
+        ? navigator.locks.request('unitrack-session', operation)
+        : operation()))()
       .catch(() => false)
       .finally(() => {
         flushing = null;
       });
+  }
   return flushing;
 }

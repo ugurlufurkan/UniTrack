@@ -5,7 +5,12 @@ import { api, ApiError, SESSION_EXPIRED_EVENT } from '@/lib/api';
 import { sortSemesters } from '@/lib/academic.mjs';
 import type { Course, GradeBand, Semester, Settings, User } from '@/lib/types';
 import { ErrorNotice, Loading } from './ui';
-import { saveOfflineSnapshot, clearDeviceData } from '@/lib/device-storage';
+import {
+  saveOfflineSnapshot,
+  clearDeviceData,
+  SESSION_REVISION_KEY,
+  hasPendingLogout,
+} from '@/lib/device-storage';
 
 type Core = {
   user: User;
@@ -62,6 +67,22 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState('');
   const reload = useCallback(() => setRevision((v) => v + 1), []);
   const notify = useCallback((value: string) => setMessage(value), []);
+  useEffect(() => {
+    const changed = () => {
+      setData(null);
+      setSelected('');
+      setError('');
+      if (hasPendingLogout()) router.replace('/login');
+      reload();
+    };
+    const storage = (event: StorageEvent) => {
+      if (event.key === SESSION_REVISION_KEY) changed();
+    };
+    window.addEventListener('storage', storage);
+    return () => {
+      window.removeEventListener('storage', storage);
+    };
+  }, [reload, router]);
   useEffect(() => {
     const expired = () => {
       void clearDeviceData();

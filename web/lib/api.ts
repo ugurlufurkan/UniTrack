@@ -6,6 +6,8 @@ import {
   flushPendingLogout,
   clearPendingLogout,
   stopBrowserPush,
+  sessionRevision,
+  advanceSessionRevision,
 } from './device-storage';
 
 export class ApiError extends Error {
@@ -19,9 +21,10 @@ export class ApiError extends Error {
 export const SESSION_EXPIRED_EVENT = 'unitrack:session-expired';
 
 let refreshing: Promise<boolean> | null = null;
-async function refreshSession() {
+async function refreshSession(revision: string) {
   if (!refreshing) {
     const operation = async () => {
+      if (revision !== sessionRevision()) return false;
       // A different tab may have renewed the shared cookies while this tab waited.
       const check = await fetch('/api/student/auth/me', { cache: 'no-store' });
       if (check.ok) return true;
@@ -52,7 +55,18 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       throw new ApiError('Çıkışın tamamlanması için bağlantını kontrol et.', 503);
     if (!isPublic) throw new ApiError('Oturum kapatıldı. Tekrar giriş yap.', 401);
   }
-  if (path === 'auth/logout') markPendingLogout();
+  if (path === 'auth/logout') {
+    markPendingLogout();
+    advanceSessionRevision();
+  }
+  const revision = sessionRevision();
+  const changesSession =
+    /^auth\/(login|register|google|logout|logout-all|change-password)$/.test(path) ||
+    (path === 'auth/me' && options.method === 'DELETE');
+  const assertCurrent = () => {
+    if (revision !== sessionRevision())
+      throw new ApiError('Hesap oturumu değişti. Lütfen işlemi yeniden başlat.', 409);
+  };
   if (path === 'auth/logout') {
     await clearDeviceData();
     await stopBrowserPush();
@@ -61,12 +75,33 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
   if (options.body && !(options.body instanceof FormData))
     headers.set('Content-Type', 'application/json');
   headers.set('X-UniTrack-Web', '1');
-  const send = () => fetch(`/api/student/${path}`, { ...options, headers, cache: 'no-store' });
+  const send = async () => {
+    const operation = async () => {
+      if (!isPublic) assertCurrent();
+      const result = await fetch(`/api/student/${path}`, {
+        ...options,
+        headers,
+        cache: 'no-store',
+      });
+      if (result.ok && changesSession) advanceSessionRevision();
+      return result;
+    };
+    return changesSession && navigator.locks
+      ? navigator.locks.request('unitrack-session', operation)
+      : operation();
+  };
   let response: Response;
   try {
     response = await send();
-    if (response.status === 401 && !isPublic && path !== 'auth/logout' && (await refreshSession()))
+    if (!isPublic && !(changesSession && response.ok)) assertCurrent();
+    if (
+      response.status === 401 &&
+      !isPublic &&
+      path !== 'auth/logout' &&
+      (await refreshSession(revision))
+    )
       response = await send();
+    if (!isPublic && !(changesSession && response.ok)) assertCurrent();
   } catch (error) {
     if (error instanceof ApiError) throw error;
     if (error instanceof DOMException && error.name === 'AbortError') throw error;

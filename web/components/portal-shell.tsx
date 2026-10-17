@@ -41,12 +41,18 @@ export function PortalShell({ children }: { children: ReactNode }) {
     try {
       await api('auth/logout', { method: 'POST' });
     } catch {
-      // The gateway clears browser cookies even if the upstream logout fails.
+      // The pending sign-out blocks private calls until server revocation can finish.
     } finally {
       router.replace('/login');
       router.refresh();
     }
   }
+  if (leaving)
+    return (
+      <div className="standalone" role="status">
+        Çıkış yapılıyor…
+      </div>
+    );
   return (
     <div className="portal-shell">
       {open && (
