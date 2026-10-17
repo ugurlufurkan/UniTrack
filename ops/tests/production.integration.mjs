@@ -47,6 +47,7 @@ try {
     let ready = false;
     for (let n=0;n<60;n++) { try { if ((await fetch(base+'/api/health')).ok) { ready=true;break; } } catch {} await new Promise(r=>setTimeout(r,500)); }
     assert.ok(ready,'production readiness failed');
+    assert.equal((await fetch('http://127.0.0.1:5000/api/v1/auth/me',{headers:{Origin:'https://untrusted.example.invalid'}})).status,403);
     const headers = { Origin:base, 'X-UniTrack-Web':'1', 'x-forwarded-for':'203.0.113.10', 'Content-Type':'application/json' };
     const result = await fetch(base+'/api/student/auth/register',{method:'POST',headers,body:JSON.stringify({name:'Container test',email:'container@example.invalid',password:'FixturePassword123!'})});
     const body = await result.json(); assert.equal(result.status,200); assert.equal(body.accessToken,undefined);

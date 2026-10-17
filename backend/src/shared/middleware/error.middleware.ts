@@ -25,6 +25,14 @@ export const errorMiddleware = (
     });
   }
 
+  // Parser errors can contain the original body (including passwords). Do not log it.
+  if (err?.type === "entity.parse.failed") {
+    return res.status(400).json({ success: false, message: "Geçerli bir JSON gövdesi gönder." });
+  }
+  if (err?.type === "entity.too.large") {
+    return res.status(413).json({ success: false, message: "İstek boyutu izin verilen sınırı aşıyor." });
+  }
+
   // Zod validation errors that escaped the `validate` middleware
   // (e.g. thrown manually inside a service instead of the route-level schema).
   if (err instanceof ZodError) {

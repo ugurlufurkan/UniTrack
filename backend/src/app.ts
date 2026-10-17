@@ -31,6 +31,7 @@ import { rateLimiter } from "./shared/middleware/rateLimiter.middleware";
 import { env } from "./config/env";
 import { verifyGateway } from "./shared/middleware/gateway.middleware";
 import { sql } from "drizzle-orm";
+import { AppError } from "./shared/errors/AppError";
 import pushRoutes, { pushHealthy } from "./modules/push/push.routes";
 
 const app = express();
@@ -73,7 +74,7 @@ app.use(cors({
     }
 
     logger.warn({ origin }, "Blocked by CORS");
-    callback(new Error("Not allowed by CORS"));
+    callback(new AppError("İstek kaynağına izin verilmiyor.", 403));
   },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
