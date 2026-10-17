@@ -85,6 +85,8 @@ Komutlar PowerShell içindir; macOS/Linux üzerinde `Copy-Item` yerine `cp` kull
 
 ## Kontroller
 
+[Kod incelemesi, düzeltilen sorunlar ve doğrulama sınırları](./docs/quality-review.md).
+
 ```powershell
 cd backend
 npm test

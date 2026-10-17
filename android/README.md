@@ -51,6 +51,8 @@ Gerçek bir telefondan (emülatör değil) test etmek isterseniz, `10.0.2.2` ça
 
 MockWebServer testleri GET tekrarlarını, yazma isteklerinin yinelenmemesini, geçici oturum servisi hatalarında hesabın korunmasını ve eşzamanlı isteklerde tek refresh yapılmasını doğrular. GitHub Actions JDK 21 ile aynı testleri ve lint kontrolünü çalıştırır. Gerçek Google girişinin ve imzalı release paketinin cihaz kabul testi ayrıca yapılmalıdır.
 
+Ek regresyonlar; çıkıştan sonra gelen yenileme yanıtlarını, hesaplar arasında önbellek yalıtımını, kısmi ayar senkronunu ve mobil güncelleme gövdelerini kontrol eder. Gönderilmeyen alanlar korunur; isteğe bağlı alanların bilerek temizlenmesi ayrıca belirtilir. Ayrıntılar [kod inceleme raporundadır](../docs/quality-review.md).
+
 ## Bilinen özellikler
 
 - Verilerimi dışa aktar: Dashboard'da tema seçicinin altında, backend'den tüm hesap verisini JSON olarak indirip paylaşım sayfasını açar.
