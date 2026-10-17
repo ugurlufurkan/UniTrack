@@ -222,7 +222,8 @@ class CalendarViewModel @Inject constructor(
                         recurrence = recurrence,
                         notificationsEnabled = notificationsEnabled,
                         notifications = notifications
-                    )
+                    ),
+                    replaceOptionalFields = true
                 )
             }.onSuccess {
                 refresh()
@@ -315,7 +316,8 @@ class CalendarViewModel @Inject constructor(
                         startTime = startTime.format(TIME_FORMATTER),
                         endTime = endTime.format(TIME_FORMATTER),
                         location = location
-                    )
+                    ),
+                    replaceOptionalFields = true
                 )
             }.onSuccess {
                 refresh()

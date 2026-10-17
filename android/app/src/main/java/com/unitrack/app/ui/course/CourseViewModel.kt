@@ -119,7 +119,8 @@ class CourseViewModel @Inject constructor(
                         credit = credit,
                         components = components,
                         gradeScale = gradeScale
-                    )
+                    ),
+                    replaceOptionalFields = true
                 )
             }.onSuccess {
                 refresh()

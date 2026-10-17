@@ -5,7 +5,7 @@ import com.unitrack.app.data.dto.CreateChecklistItemRequest
 import com.unitrack.app.data.dto.ReorderChecklistRequest
 import com.unitrack.app.data.dto.TaskItemDto
 import com.unitrack.app.data.dto.TaskSimpleResponse
-import com.unitrack.app.data.dto.UpdateChecklistItemRequest
+import kotlinx.serialization.json.JsonObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -35,7 +35,7 @@ interface TaskApiService {
     @PUT("tasks/checklist/{itemId}")
     suspend fun updateChecklistItem(
         @Path("itemId") itemId: String,
-        @Body request: UpdateChecklistItemRequest
+        @Body request: JsonObject
     ): Response<ChecklistItemDto>
 
     @DELETE("tasks/checklist/{itemId}")

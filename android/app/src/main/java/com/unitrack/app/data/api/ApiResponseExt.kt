@@ -3,6 +3,14 @@ package com.unitrack.app.data.api
 import com.unitrack.app.data.dto.ErrorResponseDto
 import kotlinx.serialization.json.Json
 import retrofit2.Response
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
+
+/** Missing optional fields stay absent; only explicitly selected nullable fields can be cleared. */
+inline fun <reified T> T.toUpdateBody(json: Json, nullableFields: Set<String> = emptySet()): JsonObject =
+    JsonObject(json.encodeToJsonElement(this).jsonObject.filter { (key, value) -> value != JsonNull || key in nullableFields })
 
 /**
  * Başarılıysa gövdeyi döner. Değilse, backend'in error middleware'inin

@@ -3,6 +3,7 @@ package com.unitrack.app.data.repository
 import com.unitrack.app.data.api.AcademicApiService
 import com.unitrack.app.data.api.bodyOrThrow
 import com.unitrack.app.data.api.requireSuccess
+import com.unitrack.app.data.api.toUpdateBody
 import com.unitrack.app.data.dto.CourseDto
 import com.unitrack.app.data.dto.CreateCourseRequest
 import com.unitrack.app.data.dto.DashboardDto
@@ -49,8 +50,8 @@ class AcademicRepository @Inject constructor(
     suspend fun createCourse(request: CreateCourseRequest): CourseDto =
         api.createCourse(request).bodyOrThrow(json)
 
-    suspend fun updateCourse(id: String, request: UpdateCourseRequest): CourseDto =
-        api.updateCourse(id, request).bodyOrThrow(json)
+    suspend fun updateCourse(id: String, request: UpdateCourseRequest, replaceOptionalFields: Boolean = false): CourseDto =
+        api.updateCourse(id, request.toUpdateBody(json, if (replaceOptionalFields) setOf("gradeScale") else emptySet())).bodyOrThrow(json)
 
     suspend fun deleteCourse(id: String) =
         api.deleteCourse(id).requireSuccess(json)

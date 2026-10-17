@@ -4,8 +4,7 @@ import com.unitrack.app.data.dto.AttendanceCourseDetailDto
 import com.unitrack.app.data.dto.AttendanceCourseSummaryDto
 import com.unitrack.app.data.dto.AttendanceOverviewDto
 import com.unitrack.app.data.dto.AttendanceRecordDto
-import com.unitrack.app.data.dto.UpdateAttendanceRecordRequest
-import com.unitrack.app.data.dto.UpdateCourseAttendanceSettingsRequest
+import kotlinx.serialization.json.JsonObject
 import com.unitrack.app.data.dto.UpsertAttendanceRecordRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -37,7 +36,7 @@ interface AttendanceApiService {
     @PUT("attendance/records/{id}")
     suspend fun updateRecord(
         @Path("id") id: String,
-        @Body request: UpdateAttendanceRecordRequest
+        @Body request: JsonObject
     ): Response<AttendanceRecordDto>
 
     @DELETE("attendance/records/{id}")
@@ -48,6 +47,6 @@ interface AttendanceApiService {
     @PUT("attendance/courses/{courseId}/settings")
     suspend fun updateCourseSettings(
         @Path("courseId") courseId: String,
-        @Body request: UpdateCourseAttendanceSettingsRequest
+        @Body request: JsonObject
     ): Response<Unit>
 }

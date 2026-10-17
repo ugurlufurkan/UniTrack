@@ -3,6 +3,7 @@ package com.unitrack.app.data.repository
 import com.unitrack.app.data.api.AttendanceApiService
 import com.unitrack.app.data.api.bodyOrThrow
 import com.unitrack.app.data.api.requireSuccess
+import com.unitrack.app.data.api.toUpdateBody
 import com.unitrack.app.data.dto.AttendanceCourseDetailDto
 import com.unitrack.app.data.dto.AttendanceCourseSummaryDto
 import com.unitrack.app.data.dto.AttendanceOverviewDto
@@ -53,9 +54,10 @@ class AttendanceRepository @Inject constructor(
     /** Mevcut bir kaydı doğrudan id üzerinden günceller. */
     suspend fun updateRecord(
         id: String,
-        request: UpdateAttendanceRecordRequest
+        request: UpdateAttendanceRecordRequest,
+        clearNote: Boolean = false
     ): AttendanceRecordDto =
-        api.updateRecord(id, request).bodyOrThrow(json)
+        api.updateRecord(id, request.toUpdateBody(json, if (clearNote) setOf("note") else emptySet())).bodyOrThrow(json)
 
     /** Bir haftanın işaretini tamamen siler (→ "işaretlenmedi" durumuna döner). */
     suspend fun deleteRecord(id: String) =
@@ -73,7 +75,7 @@ class AttendanceRepository @Inject constructor(
             totalWeeks = totalWeeks,
             weeklyHours = weeklyHours,
             attendanceLimitHours = attendanceLimitHours
-        )
+        ).toUpdateBody(json)
     ).requireSuccess(json)
 
     private suspend inline fun <reified T> fetchWithCache(

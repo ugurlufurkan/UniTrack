@@ -6,8 +6,7 @@ import com.unitrack.app.data.dto.CreateEventRequest
 import com.unitrack.app.data.dto.CreateScheduleRequest
 import com.unitrack.app.data.dto.EventDto
 import com.unitrack.app.data.dto.SimpleResponse
-import com.unitrack.app.data.dto.UpdateEventRequest
-import com.unitrack.app.data.dto.UpdateScheduleRequest
+import kotlinx.serialization.json.JsonObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -41,7 +40,7 @@ interface CalendarApiService {
     @PUT("calendar/events/{id}")
     suspend fun updateEvent(
         @Path("id") id: String,
-        @Body request: UpdateEventRequest
+        @Body request: JsonObject
     ): Response<EventDto>
 
     @DELETE("calendar/events/{id}")
@@ -56,7 +55,7 @@ interface CalendarApiService {
     @PUT("calendar/schedule/{id}")
     suspend fun updateSchedule(
         @Path("id") id: String,
-        @Body request: UpdateScheduleRequest
+        @Body request: JsonObject
     ): Response<CourseScheduleDto>
 
     @DELETE("calendar/schedule/{id}")

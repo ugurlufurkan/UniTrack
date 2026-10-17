@@ -3,6 +3,7 @@ package com.unitrack.app.data.repository
 import com.unitrack.app.data.api.TaskApiService
 import com.unitrack.app.data.api.bodyOrThrow
 import com.unitrack.app.data.api.requireSuccess
+import com.unitrack.app.data.api.toUpdateBody
 import com.unitrack.app.data.dto.ChecklistItemDto
 import com.unitrack.app.data.dto.CreateChecklistItemRequest
 import com.unitrack.app.data.dto.ReorderChecklistRequest
@@ -53,7 +54,7 @@ class TaskRepository @Inject constructor(
     ): ChecklistItemDto =
         api.updateChecklistItem(
             itemId,
-            UpdateChecklistItemRequest(title = title, isDone = isDone, sortOrder = sortOrder)
+            UpdateChecklistItemRequest(title = title, isDone = isDone, sortOrder = sortOrder).toUpdateBody(json)
         ).bodyOrThrow(json)
 
     suspend fun deleteChecklistItem(itemId: String) =

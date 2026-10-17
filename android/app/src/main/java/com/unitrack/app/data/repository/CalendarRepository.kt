@@ -3,6 +3,7 @@ package com.unitrack.app.data.repository
 import com.unitrack.app.data.api.CalendarApiService
 import com.unitrack.app.data.api.bodyOrThrow
 import com.unitrack.app.data.api.requireSuccess
+import com.unitrack.app.data.api.toUpdateBody
 import com.unitrack.app.data.dto.CalendarSummaryDto
 import com.unitrack.app.data.dto.CourseScheduleDto
 import com.unitrack.app.data.dto.CreateEventRequest
@@ -60,8 +61,8 @@ class CalendarRepository @Inject constructor(
     suspend fun createEvent(request: CreateEventRequest): EventDto =
         api.createEvent(request).bodyOrThrow(json)
 
-    suspend fun updateEvent(id: String, request: UpdateEventRequest): EventDto =
-        api.updateEvent(id, request).bodyOrThrow(json)
+    suspend fun updateEvent(id: String, request: UpdateEventRequest, replaceOptionalFields: Boolean = false): EventDto =
+        api.updateEvent(id, request.toUpdateBody(json, if (replaceOptionalFields) setOf("courseId", "description", "endAt", "location") else emptySet())).bodyOrThrow(json)
 
     suspend fun deleteEvent(id: String) =
         api.deleteEvent(id).requireSuccess(json)
@@ -72,8 +73,8 @@ class CalendarRepository @Inject constructor(
     suspend fun createSchedule(request: CreateScheduleRequest): CourseScheduleDto =
         api.createSchedule(request).bodyOrThrow(json)
 
-    suspend fun updateSchedule(id: String, request: UpdateScheduleRequest): CourseScheduleDto =
-        api.updateSchedule(id, request).bodyOrThrow(json)
+    suspend fun updateSchedule(id: String, request: UpdateScheduleRequest, replaceOptionalFields: Boolean = false): CourseScheduleDto =
+        api.updateSchedule(id, request.toUpdateBody(json, if (replaceOptionalFields) setOf("location") else emptySet())).bodyOrThrow(json)
 
     suspend fun deleteSchedule(id: String) =
         api.deleteSchedule(id).requireSuccess(json)

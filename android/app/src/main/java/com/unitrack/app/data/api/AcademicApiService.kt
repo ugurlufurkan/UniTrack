@@ -10,7 +10,7 @@ import com.unitrack.app.data.dto.SemesterRequest
 import com.unitrack.app.data.dto.SimpleResponse
 import com.unitrack.app.data.dto.StatisticsDto
 import com.unitrack.app.data.dto.TranscriptEntryDto
-import com.unitrack.app.data.dto.UpdateCourseRequest
+import kotlinx.serialization.json.JsonObject
 import com.unitrack.app.data.dto.UpdateGradeScaleRequest
 import retrofit2.Response
 import retrofit2.http.Body
@@ -49,7 +49,7 @@ interface AcademicApiService {
     @PUT("courses/{id}")
     suspend fun updateCourse(
         @Path("id") id: String,
-        @Body request: UpdateCourseRequest
+        @Body request: JsonObject
     ): Response<CourseDto>
 
     @DELETE("courses/{id}")
