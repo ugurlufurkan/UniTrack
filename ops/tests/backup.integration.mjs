@@ -33,7 +33,10 @@ try {
   console.log(docker(...common, '-e', 'PGDATABASE=unitrack_test', '-e', `AGE_RECIPIENT=${recipient}`, 'unitrack-backup-check:local'));
   const archive = fs.readdirSync(directory).find(file => file.endsWith('.dump.age'));
   assert.ok(archive);
-  assert.equal(fs.readFileSync(path.join(directory, archive)).includes(Buffer.from('Backup account')), false, 'backup must not contain plaintext student data');
+  // Backups are mode 600 and owned by the backup container, including on Linux runners.
+  const encrypted = docker('run', '--rm', '--network', 'none', '-v', `${directory}:/backups:ro`, '--entrypoint', 'cat', 'unitrack-backup-check:local', `/backups/${archive}`);
+  assert.ok(encrypted.startsWith('age-encryption.org/v1\n'), 'backup must be an age-encrypted file');
+  assert.equal(encrypted.includes('Backup account'), false, 'backup must not contain plaintext student data');
   console.log(docker(...common, '-e', `BACKUP_FILE=${archive}`, '-e', 'AGE_IDENTITY_FILE=/backups/identity', '-e', 'RESTORE_EXPECTED_USERS=1', '-e', 'RESTORE_EXPECTED_COURSES=1', 'unitrack-backup-check:local', '/scripts/restore-check.sh'));
   const databases = docker('exec', name, 'psql', '-U', 'postgres', '-At', '-c', "SELECT datname FROM pg_database WHERE datname LIKE 'unitrack_restore_check_%'");
   assert.equal(databases.trim(), '', 'temporary restore database must be removed');
