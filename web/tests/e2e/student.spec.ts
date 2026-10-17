@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 
 test('student can register, manage academic data, sign out and sign in again', async ({ page }) => {
   const errors: string[] = [];
@@ -214,4 +214,88 @@ test('offline sign-out clears the device copy and finishes server logout on reco
     data: { refreshToken: refresh },
   });
   expect(invalidated.status()).toBe(401);
+});
+
+test('student accounts cannot read or modify each others academic records or sessions', async ({
+  page,
+  browser,
+}) => {
+  const otherContext = await browser.newContext({
+    extraHTTPHeaders: { 'x-forwarded-for': '203.0.113.21' },
+  });
+  const other = await otherContext.newPage();
+  const call = (target: Page, path: string, method = 'GET', body?: unknown) =>
+    target.evaluate(
+      async ({ path, method, body }) => {
+        const response = await fetch(`/api/student/${path}`, {
+          method,
+          headers: { 'Content-Type': 'application/json', 'X-UniTrack-Web': '1' },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+        return {
+          status: response.status,
+          body: response.status === 204 ? null : await response.json(),
+        };
+      },
+      { path, method, body },
+    );
+  try {
+    await page.goto('/register');
+    await other.goto('/register');
+    for (const [target, name] of [
+      [page, 'Owner'],
+      [other, 'Stranger'],
+    ] as const) {
+      const registered = await call(target, 'auth/register', 'POST', {
+        name,
+        email: `isolation-${name}-${Date.now()}@example.invalid`,
+        password: 'UniTrackTest123!',
+      });
+      expect(registered.status).toBe(200);
+    }
+    const semester = await call(page, 'semesters', 'POST', { year: 2026, term: 'Güz' });
+    const input = {
+      semesterId: semester.body.id,
+      name: 'Account isolation course',
+      credit: 3,
+      components: [{ name: 'Final', weight: 100, score: 80 }],
+    };
+    const course = await call(page, 'courses', 'POST', input);
+    expect(course.status).toBe(201);
+    const event = await call(page, 'calendar/events', 'POST', {
+      title: 'Private assignment',
+      type: 'project',
+      startAt: new Date(Date.now() + 3600000).toISOString(),
+    });
+    const checklist = await call(page, `tasks/${event.body.id}/checklist`, 'POST', {
+      title: 'Private subtask',
+    });
+    const devices = await call(page, 'auth/devices');
+    expect((await call(other, 'courses')).body).toEqual([]);
+    expect((await call(other, 'courses', 'POST', input)).status).toBe(400);
+    expect(
+      (await call(other, `courses/${course.body.id}`, 'PUT', { name: 'Hijacked course' })).status,
+    ).toBe(404);
+    expect((await call(other, `semesters/${semester.body.id}`, 'DELETE')).status).toBe(404);
+    expect((await call(other, `attendance/courses/${course.body.id}`)).status).toBe(404);
+    expect(
+      (await call(other, `calendar/events/${event.body.id}`, 'PUT', { status: 'completed' }))
+        .status,
+    ).toBe(404);
+    expect(
+      (await call(other, `tasks/checklist/${checklist.body.id}`, 'PUT', { isDone: true })).status,
+    ).toBe(404);
+    expect((await call(other, `auth/devices/${devices.body.devices[0].id}`, 'DELETE')).status).toBe(
+      404,
+    );
+    const exported = await call(other, 'export');
+    expect(exported.status).toBe(200);
+    expect(JSON.stringify(exported.body)).not.toContain('Private subtask');
+    const retained = await call(page, 'courses');
+    expect(retained.body[0].name).toBe(input.name);
+    expect((await call(page, 'auth/me', 'DELETE')).status).toBe(204);
+    expect((await call(other, 'auth/me', 'DELETE')).status).toBe(204);
+  } finally {
+    await otherContext.close();
+  }
 });

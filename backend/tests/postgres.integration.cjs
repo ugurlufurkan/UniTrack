@@ -31,8 +31,16 @@ test("physical PostgreSQL migrations and concurrent imports/rotations/push claim
     const imports = await Promise.all([importSemesters(user.id, data), importSemesters(user.id, data)]);
     assert.equal(imports.reduce((total, item) => total + item.importedCourses, 0), 1);
     const attendance = require("../dist/modules/attendance/attendance.repository");
-    const [semester] = await db.select().from(schema.semesters).where(eq(schema.semesters.userId, user.id));
+    const [semester] = await db.select().from(schema.semesters).where(and(eq(schema.semesters.userId, user.id), eq(schema.semesters.year, 2026)));
     const [course] = await db.select().from(schema.courses).where(eq(schema.courses.semesterId, semester.id));
+    const courses = require("../dist/modules/course/course.repository");
+    const semesters = require("../dist/modules/semester/semester.service");
+    const duplicateTerms = await Promise.allSettled([semesters.create(user.id, 2027, "Güz"), semesters.create(user.id, 2027, "Güz")]);
+    assert.equal(duplicateTerms.filter(item => item.status === "fulfilled").length, 1);
+    await Promise.all([courses.update(user.id, course.id, { name: "Concurrent renamed course" }), courses.update(user.id, course.id, { credit: 5 })]);
+    const edited = await courses.findOne(user.id, course.id);
+    assert.equal(edited.name, "Concurrent renamed course");
+    assert.equal(edited.credit, 5);
     const record = { weekNumber: 1, date: "2026-10-17", attendedHours: 2, absentHours: 1, excusedHours: 0 };
     await Promise.all([attendance.upsertRecord(user.id, course.id, record), attendance.upsertRecord(user.id, course.id, record)]);
     assert.equal((await attendance.findCourseAttendance(user.id, course.id)).records.length, 1);
@@ -77,6 +85,11 @@ test("physical PostgreSQL migrations and concurrent imports/rotations/push claim
       gate.release();
       await Promise.allSettled(operations);
     }
+    const { hashRecoveryToken } = require("../dist/lib/jwt");
+    const recovery = randomUUID();
+    await db.update(schema.users).set({ passwordResetToken: hashRecoveryToken(recovery), passwordResetExpiresAt: new Date(Date.now() + 60000) }).where(eq(schema.users.id, user.id));
+    const resets = await Promise.allSettled([authService.resetPassword(recovery, "PostgresPassword123!"), authService.resetPassword(recovery, "OtherPostgresPassword123!")]);
+    assert.equal(resets.filter(item => item.status === "fulfilled").length, 1, "only one physical connection can consume a recovery credential");
   } finally {
     if (user) await db.delete(schema.users).where(eq(schema.users.id, user.id));
     await pool.end();
