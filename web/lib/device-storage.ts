@@ -140,7 +140,7 @@ export function flushPendingLogout() {
       headers: { 'X-UniTrack-Web': '1' },
     })
       .then((response) => {
-        if (response.status < 500) {
+        if (response.status < 500 && response.status !== 429) {
           clearPendingLogout();
           return true;
         }

@@ -60,7 +60,10 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
       headers: { 'Cache-Control': 'no-store' },
     });
     if (upstream.ok && accessToken && refreshToken) setSession(response, accessToken, refreshToken);
-    if (isLogout || (upstream.ok && ['auth/change-password', 'auth/logout-all'].includes(path)))
+    if (
+      (isLogout && upstream.status < 500 && upstream.status !== 429) ||
+      (upstream.ok && ['auth/change-password', 'auth/logout-all'].includes(path))
+    )
       clearSession(response);
     const disposition = upstream.headers.get('content-disposition');
     const requestId = upstream.headers.get('x-request-id');
@@ -70,9 +73,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ path: s
   } catch (error) {
     if (error instanceof BodyLimitError)
       return jsonError('Dosya boyutu 10 MB sınırını aşıyor.', 413);
-    const response = jsonError('Sunucuya ulaşılamıyor. Biraz sonra tekrar dene.', 503);
-    if (isLogout) clearSession(response);
-    return response;
+    return jsonError('Sunucuya ulaşılamıyor. Biraz sonra tekrar dene.', 503);
   }
 }
 

@@ -53,10 +53,7 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     if (!isPublic) throw new ApiError('Oturum kapatıldı. Tekrar giriş yap.', 401);
   }
   if (path === 'auth/logout') markPendingLogout();
-  if (
-    ['auth/logout', 'auth/logout-all', 'auth/change-password'].includes(path) ||
-    (path === 'auth/me' && options.method === 'DELETE')
-  ) {
+  if (path === 'auth/logout') {
     await clearDeviceData();
     await stopBrowserPush();
   }
@@ -75,13 +72,30 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new ApiError('Bağlantı kurulamadı. İnternet bağlantını kontrol et.', 503);
   }
-  if (path === 'auth/logout' && response.status < 500) clearPendingLogout();
+  if (path === 'auth/logout' && response.status < 500 && response.status !== 429)
+    clearPendingLogout();
+  if (
+    response.ok &&
+    (['auth/logout-all', 'auth/change-password'].includes(path) ||
+      (path === 'auth/me' && options.method === 'DELETE'))
+  ) {
+    await clearDeviceData();
+    await stopBrowserPush();
+  }
   if (response.ok && /^auth\/(login|register|google)$/.test(path)) {
     await clearDeviceData();
     await stopBrowserPush();
   }
   if (response.status === 204) return undefined as T;
-  const data = await response.json();
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new ApiError(
+      'Sunucudan geçerli yanıt alınamadı. Tekrar dene.',
+      response.ok ? 502 : response.status,
+    );
+  }
   if (!response.ok) {
     if (response.status === 401 && !/^auth\//.test(path))
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));

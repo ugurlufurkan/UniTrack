@@ -173,7 +173,16 @@ test(
       state.failLogout = true;
       const logout = await authRequest('auth/logout', { method: 'POST' });
       assert.equal(logout.status, 503);
-      assert.ok(logout.headers.getSetCookie().every((value) => /Max-Age=0/.test(value)));
+      assert.equal(
+        logout.headers.getSetCookie().length,
+        0,
+        'retain HttpOnly credentials until deferred server revocation can complete',
+      );
+      state.failLogout = false;
+      const retriedLogout = await authRequest('auth/logout', { method: 'POST' });
+      assert.equal(retriedLogout.status, 200);
+      assert.equal(retriedLogout.headers.getSetCookie().length, 2);
+      assert.ok(retriedLogout.headers.getSetCookie().every((value) => /Max-Age=0/.test(value)));
     } finally {
       child.kill();
       server.closeAllConnections();
