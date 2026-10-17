@@ -156,14 +156,14 @@ export const updateChecklistItem = async (
   itemId: string,
   data: UpdateChecklistItemDto
 ) => {
-  const current = await verifyChecklistItemOwnership(userId, itemId);
+  await verifyChecklistItemOwnership(userId, itemId);
 
   const [updated] = await db
     .update(eventChecklistItems)
     .set({
-      title: data.title ?? current.title,
-      isDone: data.isDone ?? current.isDone,
-      sortOrder: data.sortOrder ?? current.sortOrder,
+      title: data.title,
+      isDone: data.isDone,
+      sortOrder: data.sortOrder,
       updatedAt: new Date(),
     })
     .where(eq(eventChecklistItems.id, itemId))

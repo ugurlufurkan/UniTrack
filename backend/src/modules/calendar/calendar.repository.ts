@@ -175,33 +175,34 @@ export const updateEvent = async (
   eventId: string,
   data: UpdateEventDto,
 ) => {
-  const existing = await db
-    .select()
-    .from(events)
-    .where(and(eq(events.id, eventId), eq(events.userId, userId)))
-    .limit(1);
-
-  if (!existing.length) {
-    throw AppError.notFound("Etkinlik bulunamadı.");
-  }
-
-  const current = existing[0];
-
-  const startAt = data.startAt ? new Date(data.startAt) : current.startAt;
-  const endAt =
-    data.endAt === undefined
-      ? current.endAt
-      : data.endAt
-        ? new Date(data.endAt)
-        : null;
-  if (endAt && endAt < startAt)
-    throw AppError.badRequest("Bitiş zamanı başlangıçtan önce olamaz.");
-
-  if (data.courseId) {
-    await verifyCourseOwnership(userId, data.courseId);
-  }
-
   return db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(events)
+      .where(and(eq(events.id, eventId), eq(events.userId, userId)))
+      .limit(1)
+      .for("update");
+
+    if (!existing.length) {
+      throw AppError.notFound("Etkinlik bulunamadı.");
+    }
+
+    const current = existing[0];
+
+    const startAt = data.startAt ? new Date(data.startAt) : current.startAt;
+    const endAt =
+      data.endAt === undefined
+        ? current.endAt
+        : data.endAt
+          ? new Date(data.endAt)
+          : null;
+    if (endAt && endAt < startAt)
+      throw AppError.badRequest("Bitiş zamanı başlangıçtan önce olamaz.");
+
+    if (data.courseId) {
+      await verifyCourseOwnership(userId, data.courseId);
+    }
+
     const [updated] = await tx
       .update(events)
       .set({
@@ -238,7 +239,24 @@ export const updateEvent = async (
       .from(eventNotifications)
       .where(eq(eventNotifications.eventId, eventId));
 
-    if (data.notifications) {
+    const reminderKeys = (
+      items: {
+        daysBefore: number;
+        hoursBefore: number;
+        minutesBefore: number;
+      }[],
+    ) =>
+      items
+        .map(
+          (item) =>
+            `${item.daysBefore}:${item.hoursBefore}:${item.minutesBefore}`,
+        )
+        .sort()
+        .join(",");
+    if (
+      data.notifications &&
+      reminderKeys(data.notifications) !== reminderKeys(notifications)
+    ) {
       await tx
         .delete(eventNotifications)
         .where(eq(eventNotifications.eventId, eventId));
@@ -347,43 +365,50 @@ export const updateSchedule = async (
   scheduleId: string,
   data: UpdateScheduleDto,
 ) => {
-  const existing = await db
-    .select()
-    .from(courseSchedule)
-    .where(
-      and(eq(courseSchedule.id, scheduleId), eq(courseSchedule.userId, userId)),
-    )
-    .limit(1);
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select()
+      .from(courseSchedule)
+      .where(
+        and(
+          eq(courseSchedule.id, scheduleId),
+          eq(courseSchedule.userId, userId),
+        ),
+      )
+      .limit(1)
+      .for("update");
 
-  if (!existing.length) {
-    throw AppError.notFound("Ders programı bulunamadı.");
-  }
+    if (!existing.length) {
+      throw AppError.notFound("Ders programı bulunamadı.");
+    }
 
-  const current = existing[0];
+    const current = existing[0];
 
-  if (
-    (data.endTime ?? current.endTime) <= (data.startTime ?? current.startTime)
-  ) {
-    throw AppError.badRequest("Bitiş saati başlangıçtan sonra olmalı.");
-  }
+    if (
+      (data.endTime ?? current.endTime) <= (data.startTime ?? current.startTime)
+    ) {
+      throw AppError.badRequest("Bitiş saati başlangıçtan sonra olmalı.");
+    }
 
-  if (data.courseId) {
-    await verifyCourseOwnership(userId, data.courseId);
-  }
+    if (data.courseId) {
+      await verifyCourseOwnership(userId, data.courseId);
+    }
 
-  const [updated] = await db
-    .update(courseSchedule)
-    .set({
-      courseId: data.courseId ?? current.courseId,
-      dayOfWeek: data.dayOfWeek ?? current.dayOfWeek,
-      startTime: data.startTime ?? current.startTime,
-      endTime: data.endTime ?? current.endTime,
-      location: data.location !== undefined ? data.location : current.location,
-    })
-    .where(eq(courseSchedule.id, scheduleId))
-    .returning();
+    const [updated] = await tx
+      .update(courseSchedule)
+      .set({
+        courseId: data.courseId ?? current.courseId,
+        dayOfWeek: data.dayOfWeek ?? current.dayOfWeek,
+        startTime: data.startTime ?? current.startTime,
+        endTime: data.endTime ?? current.endTime,
+        location:
+          data.location !== undefined ? data.location : current.location,
+      })
+      .where(eq(courseSchedule.id, scheduleId))
+      .returning();
 
-  return updated;
+    return updated;
+  });
 };
 
 export const removeSchedule = async (userId: string, scheduleId: string) => {
