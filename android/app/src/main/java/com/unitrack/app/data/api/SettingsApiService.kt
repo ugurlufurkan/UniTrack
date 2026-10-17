@@ -1,7 +1,7 @@
 package com.unitrack.app.data.api
 
 import com.unitrack.app.data.dto.SettingsDto
-import com.unitrack.app.data.dto.SettingsUpdateRequest
+import kotlinx.serialization.json.JsonObject
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -12,11 +12,7 @@ interface SettingsApiService {
     @GET("settings")
     suspend fun getSettings(): Response<SettingsDto>
 
-    // NOT: Json { encodeDefaults = true } açık olduğu için istek gövdesinde
-    // TÜM alanlar (dahil edilmeyenler null olarak) gönderilir. Bu yüzden
-    // çağıran taraf (SettingsSyncRepository) her zaman güncel/tam bir
-    // SettingsUpdateRequest oluşturup göndermeli — aksi halde tek bir alanı
-    // değiştirmek diğerlerini sunucuda null'a sıfırlar.
+    // Only explicitly changed fields are included; explicit JSON null clears a setting.
     @PATCH("settings")
-    suspend fun updateSettings(@Body request: SettingsUpdateRequest): Response<SettingsDto>
+    suspend fun updateSettings(@Body request: JsonObject): Response<SettingsDto>
 }

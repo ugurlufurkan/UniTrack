@@ -1,6 +1,9 @@
 package com.unitrack.app.data.dto
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 // ==========================
 // SETTINGS (cihazlar arası senkron edilen kişisel ayarlar)
@@ -15,17 +18,9 @@ data class SettingsDto(
     val examPeriodEnd: String? = null
 )
 
-/**
- * PATCH gövdesi: alan hiç eklenmezse dokunulmaz, null gönderilirse o ayar
- * sıfırlanır. kotlinx.serialization varsayılan olarak `null` alanları da
- * gövdeye yazdığı için (encodeDefaults açık olmasa da açıkça atanmış null
- * alanlar serialize edilir), tek seferde sadece değişen alan(lar)ı
- * göndermek istersen ayrı ayrı PATCH çağrıları at.
- */
-@Serializable
-data class SettingsUpdateRequest(
-    val themePreference: String? = null,
-    val targetGpa: Double? = null,
-    val examPeriodStart: String? = null,
-    val examPeriodEnd: String? = null
-)
+internal object SettingsPatches {
+    fun theme(value: String) = buildJsonObject { put("themePreference", value) }
+    fun target(value: Double) = buildJsonObject { put("targetGpa", value) }
+    fun examPeriod(start: String, end: String) = buildJsonObject { put("examPeriodStart", start); put("examPeriodEnd", end) }
+    fun clearExamPeriod() = buildJsonObject { put("examPeriodStart", JsonNull); put("examPeriodEnd", JsonNull) }
+}
