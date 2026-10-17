@@ -6,10 +6,7 @@ import com.unitrack.app.data.repository.AuthPreferences
 import com.unitrack.app.data.session.SessionEventBus
 import dagger.Lazy
 import kotlinx.coroutines.runBlocking
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import java.util.Base64
+import com.unitrack.app.data.session.tokenOwner
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
@@ -118,11 +115,6 @@ class TokenAuthenticator internal constructor(
     private fun forceLogout(expectedRefresh: String?) {
         if (credentials.clearIfCurrent(expectedRefresh)) notifyLogout()
     }
-
-    private fun tokenOwner(token: String?): String? = runCatching {
-        val payload = token?.split('.')?.getOrNull(1) ?: return null
-        Json.parseToJsonElement(String(Base64.getUrlDecoder().decode(payload), Charsets.UTF_8)).jsonObject["userId"]?.jsonPrimitive?.content
-    }.getOrNull()
 
     private fun responseCount(response: Response): Int {
         var result = 1

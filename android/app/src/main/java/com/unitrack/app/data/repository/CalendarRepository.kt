@@ -80,14 +80,8 @@ class CalendarRepository @Inject constructor(
 
     private suspend inline fun <reified T> fetchWithCache(
         key: String,
-        network: suspend () -> T
+        crossinline network: suspend () -> T
     ): T {
-        return try {
-            val fresh = network()
-            cache.save(key, fresh)
-            fresh
-        } catch (e: IOException) {
-            cache.load<T>(key) ?: throw e
-        }
+        return cache.fetchWithCache(key) { network() }
     }
 }

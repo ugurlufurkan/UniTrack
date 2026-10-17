@@ -11,6 +11,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.unitrack.app.data.repository.AuthPreferences
+import com.unitrack.app.data.session.readThroughAccountCache
+import com.unitrack.app.data.session.tokenOwner
 
 // AuthPreferences'taki "auth_prefs" ile aynı desen: DataStore delegate'i
 // dosya seviyesinde (class içinde DEĞİL) tanımlanmalı, aksi halde "there are
@@ -40,8 +43,14 @@ internal val Context.offlineCacheStore by preferencesDataStore(name = "offline_c
 class OfflineCache @Inject constructor(
     // Aynı sebepten: public inline fun'ların erişebilmesi için @PublishedApi internal.
     @ApplicationContext @PublishedApi internal val context: Context,
-    @PublishedApi internal val json: Json
+    @PublishedApi internal val json: Json,
+    @PublishedApi internal val authPreferences: AuthPreferences
 ) {
+
+    suspend fun accountId(): String? = tokenOwner(authPreferences.getAccessTokenOnce())
+
+    suspend inline fun <reified T> fetchWithCache(key: String, crossinline network: suspend () -> T): T =
+        readThroughAccountCache(key, { accountId() }, { network() }, { load<T>(it) }, { scoped, value -> save(scoped, value) })
 
     suspend inline fun <reified T> save(key: String, value: T) {
         val payload = json.encodeToString(value)
