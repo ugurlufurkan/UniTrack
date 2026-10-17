@@ -1,7 +1,7 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 import { db } from "../../db";
-import { attendanceRecords, courseSchedule, users } from "../../db/schema";
+import { attendanceRecords, eventChecklistItems, users } from "../../db/schema";
 import { AppError } from "../../shared/errors/AppError";
 
 import * as semesterRepository from "../semester/semester.repository";
@@ -52,6 +52,13 @@ export const exportAllUserData = async (userId: string) => {
         .where(eq(attendanceRecords.userId, userId)),
     ]);
 
+  const checklist = events.length ? await db.select().from(eventChecklistItems).where(inArray(eventChecklistItems.eventId, events.map(event => event.id))) : [];
+  const byEvent = new Map<string, typeof checklist>();
+  for (const item of checklist) {
+    const items = byEvent.get(item.eventId) ?? [];
+    items.push(item);
+    byEvent.set(item.eventId, items);
+  }
   return {
     formatVersion: EXPORT_FORMAT_VERSION,
     exportedAt: new Date().toISOString(),
@@ -59,7 +66,7 @@ export const exportAllUserData = async (userId: string) => {
     settings,
     semesters,
     courses,
-    events,
+    events: events.map(event => ({ ...event, checklist: (byEvent.get(event.id) ?? []).sort((a, b) => a.sortOrder - b.sortOrder) })),
     courseSchedule: schedule,
     attendanceRecords: attendance,
   };
