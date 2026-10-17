@@ -8,6 +8,8 @@ import {
   real,
   boolean,
   jsonb,
+  uniqueIndex,
+  index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -15,6 +17,35 @@ export const rateLimitBuckets = pgTable("rate_limit_buckets", {
   key: text("key").primaryKey(),
   hits: integer("hits").notNull(),
   resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+});
+
+export const pushSubscriptions = pgTable("web_push_subscriptions", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  tokenId: uuid("token_id").notNull().references(() => refreshTokens.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, table => [index("web_push_session_idx").on(table.tokenId), index("web_push_user_idx").on(table.userId)]);
+
+export const pushDeliveries = pgTable("web_push_deliveries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  subscriptionId: uuid("subscription_id").notNull().references(() => pushSubscriptions.id, { onDelete: "cascade" }),
+  eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+  notificationId: uuid("notification_id").notNull().references(() => eventNotifications.id, { onDelete: "cascade" }),
+  occurrenceAt: timestamp("occurrence_at", { withTimezone: true }).notNull(),
+  dueAt: timestamp("due_at", { withTimezone: true }).notNull(),
+  attempts: integer("attempts").default(0).notNull(),
+  nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }).defaultNow().notNull(),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  failedAt: timestamp("failed_at", { withTimezone: true }),
+}, table => [uniqueIndex("web_push_delivery_unique").on(table.subscriptionId, table.notificationId, table.dueAt), index("web_push_pending_idx").on(table.nextAttemptAt).where(sql`${table.sentAt} is null and ${table.failedAt} is null`)]);
+
+export const pushWorkerState = pgTable("web_push_worker_state", {
+  id: text("id").primaryKey(),
+  lastSeen: timestamp("last_seen", { withTimezone: true }).notNull(),
 });
 
 /* =========================

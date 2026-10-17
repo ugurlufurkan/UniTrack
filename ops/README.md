@@ -62,3 +62,19 @@ BACKUP_FILE=unitrack-YYYYMMDDTHHMMSSZ-1.dump.age docker compose --env-file ops/.
 Komut checksum'u doğrular, şifreyi çözer ve yeni `unitrack_restore_check_*` veritabanına transaction içinde geri yükler. Ana tablolar sorgulanır, geçici veritabanı sonunda kaldırılır. Canlı `unitrack` veritabanına geri yükleme yapmaz. Gerçek kurtarmada önce bu provayı tamamla, servisi bakım moduna al ve operatör kontrolüyle hedefi değiştir; otomatik veri üzerine yazma eklenmemiştir.
 
 `node ops/tests/backup.integration.mjs` gerçek PostgreSQL verisini şifreleyip geri yükleyerek kayıt sayılarını ve geçici veritabanının temizlendiğini doğrular. Bu test için Docker ve derlenmiş backend gerekir.
+
+## Tarayıcı hatırlatmaları
+
+İsteğe bağlıdır ve kullanıcı cihaz ayarlarından izin vermeden abonelik oluşturulmaz. HTTPS ve desteklenen bir tarayıcı gerekir; iOS'ta portalı ana ekrana yüklemek gerekebilir. FCM, Mozilla, Apple ve Windows bildirim uçları desteklenir.
+
+`backend/` içinde `npm run push:keys`, eşleşen VAPID anahtarlarını Git tarafından dışlanan `ops/keys/vapid.env` dosyasına yazar; mevcut dosyanın üzerine yazmaz. Anahtarları `ops/.env` içindeki VAPID alanlarına aktar, dosya izinlerini 600 yap ve özel anahtarı sakla. API ile worker aynı anahtarları kullanmalıdır. Anahtar değişimi mevcut aboneliklerde kullanıcıdan yeniden etkinleştirme gerektirir.
+
+`PUSH_ENABLED=true` ayarla; ardından:
+
+```sh
+docker compose --env-file ops/.env -f ops/compose.yml --profile push up -d --build backend push monitor
+```
+
+Worker kalıcı kuyruk, benzersiz teslimat kaydı ve PostgreSQL `SKIP LOCKED` ile birden çok kopyayı destekler. 30 saniyede bir tarar, son 5 dakikadaki hatırlatmaları yakalar; geçici hatalarda en fazla 3 deneme yapar ve 10 dakikayı geçen teslimatı bırakır. Tekrarlanan etkinliklerde `PUSH_TIMEZONE` saat dilimini kullanır; varsayılan İstanbul'dur. Başarılı gönderim sonrası süreç çökmesi tekrar teslimata neden olabilir; tarayıcı aynı teslimat etiketini kullanır. Bildirim zamanı ve teslimatı tarayıcı/işletim sistemi tarafından geciktirilebilir.
+
+Abonelik cihazın aktif oturumuna bağlıdır; yenilemede devam eder, oturum iptalinde gönderim durur. Çıkışta yerel izin kaydı ve abonelik temizlenir. Worker sağlıklı değilse arayüz yeni abonelik açmaz; monitor bu servisi de izler. İzole testler gerçek kullanıcılara push göndermez; canlı vendor teslimatı yayın kabulünde ayrıca doğrulanmalıdır.

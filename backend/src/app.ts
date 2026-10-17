@@ -31,6 +31,7 @@ import { rateLimiter } from "./shared/middleware/rateLimiter.middleware";
 import { env } from "./config/env";
 import { verifyGateway } from "./shared/middleware/gateway.middleware";
 import { sql } from "drizzle-orm";
+import pushRoutes, { pushHealthy } from "./modules/push/push.routes";
 
 const app = express();
 
@@ -100,7 +101,7 @@ app.get("/api/health", async (_, res) => {
     // Check database connection
     const { db } = await import("./db/index.js");
     await db.execute("SELECT 1");
-    const schemaReady = await db.execute(sql`SELECT to_regclass('public.rate_limit_buckets') AS ready`);
+    const schemaReady = await db.execute(sql`SELECT to_regclass('public.rate_limit_buckets') IS NOT NULL AND to_regclass('public.web_push_subscriptions') IS NOT NULL AS ready`);
     if (!schemaReady.rows[0]?.ready) throw new Error("Database migrations pending");
 
     res.status(200).json({
@@ -122,6 +123,7 @@ app.get("/api/health", async (_, res) => {
 });
 
 app.get("/api/live", (_, res) => { res.json({ success: true }); });
+app.get("/api/push-health", async (_, res) => { try { const healthy = await pushHealthy(); res.status(healthy ? 200 : 503).json({ success: healthy }); } catch { res.status(503).json({ success: false }); } });
 
 // --- API versioning ---------------------------------------------------
 // All feature routes live under /api/v1/*. We also mount the same router
@@ -131,6 +133,7 @@ app.get("/api/live", (_, res) => { res.json({ success: true }); });
 const v1Router = express.Router();
 
 v1Router.use("/auth", authRoutes);
+v1Router.use("/push", pushRoutes);
 v1Router.use("/semesters", semesterRoutes);
 v1Router.use("/courses", courseRoutes);
 v1Router.use("/gpa", gpaRoutes);

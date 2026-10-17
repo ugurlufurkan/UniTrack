@@ -2,10 +2,13 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const requireBackend = createRequire(path.join(root, 'backend/package.json'));
+const fixtureKeys = requireBackend('web-push').generateVAPIDKeys();
 const suffix = randomUUID().slice(0, 8);
-const names = { db: `unitrack-check-db-${suffix}`, api: `unitrack-check-api-${suffix}`, web: `unitrack-check-web-${suffix}` };
+const names = { db: `unitrack-check-db-${suffix}`, api: `unitrack-check-api-${suffix}`, web: `unitrack-check-web-${suffix}`, push: `unitrack-check-push-${suffix}` };
 const created = [];
 const docker = (...args) => execFileSync('docker', args, { cwd: root, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 300000 });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -30,9 +33,12 @@ try {
     JWT_SECRET: 'a'.repeat(64), JWT_REFRESH_SECRET: 'b'.repeat(64), WEB_PROXY_SECRET: 'c'.repeat(64),
     FRONTEND_URL: 'https://students.example.invalid', SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '587',
     SMTP_USER: 'fixture', SMTP_PASS: 'fixture-password', SMTP_FROM: 'noreply@example.invalid',
+    VAPID_PUBLIC_KEY: fixtureKeys.publicKey, VAPID_PRIVATE_KEY: fixtureKeys.privateKey, VAPID_SUBJECT: 'mailto:fixture@example.invalid',
   };
   docker('run', '-d', '--name', names.api, '--network', `container:${names.db}`, ...Object.entries(env).flatMap(([key, value]) => ['-e', `${key}=${value}`]), 'unitrack-backend-check:local');
   created.push(names.api);
+  docker('run', '-d', '--name', names.push, '--network', `container:${names.db}`, ...Object.entries(env).flatMap(([key, value]) => ['-e', `${key}=${value}`]), 'unitrack-backend-check:local', 'node', 'dist/workers/push.js');
+  created.push(names.push);
   docker('run', '-d', '--name', names.web, '--network', `container:${names.db}`, '-e', 'API_URL=http://127.0.0.1:5000/api/v1', '-e', `WEB_PROXY_SECRET=${env.WEB_PROXY_SECRET}`, '-e', 'WEB_CLIENT_IP_HEADER=x-forwarded-for', 'unitrack-web-check:local');
   created.push(names.web);
   const smoke = `
@@ -46,8 +52,11 @@ try {
     const body = await result.json(); assert.equal(result.status,200); assert.equal(body.accessToken,undefined);
     headers.Cookie = result.headers.getSetCookie().map(c=>c.split(';')[0]).join('; ');
     assert.equal((await fetch(base+'/api/student/auth/me',{headers})).status,200);
+    let pushReady = false;
+    for (let n=0;n<20;n++) { const response = await fetch(base+'/api/student/push/config',{headers}); if ((await response.json()).enabled) { pushReady=true;break; } await new Promise(r=>setTimeout(r,500)); }
+    assert.ok(pushReady,'push worker heartbeat/configuration failed');
     assert.equal((await fetch(base+'/api/student/auth/me',{method:'DELETE',headers})).status,204);
-    console.log('Production Docker readiness, signed gateway, registration and account cleanup passed');
+    console.log('Production Docker readiness, push worker, signed gateway, registration and account cleanup passed');
   `;
   execFileSync('docker', ['exec', '-i', names.web, 'node', '--input-type=module'], { input: smoke, encoding: 'utf8', stdio: ['pipe', 'inherit', 'inherit'], timeout: 60000 });
 } finally {

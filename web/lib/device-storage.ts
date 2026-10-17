@@ -80,6 +80,40 @@ export async function clearDeviceData() {
     /* Storage may be disabled entirely. */
   }
 }
+export async function pushPermission() {
+  const owner = await transaction<string>('readonly', (store) => store.get('pushOwner'));
+  const enabled = await transaction<boolean>('readonly', (store) => store.get('pushEnabled'));
+  return { owner, enabled: enabled === true };
+}
+export async function setPushPermission(owner: string, enabled: boolean) {
+  await transaction('readwrite', (store) => {
+    store.put(owner, 'pushOwner');
+    store.put(enabled, 'pushEnabled');
+  });
+}
+export async function stopBrowserPush() {
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (!registration) return;
+    for (const notification of await registration.getNotifications()) notification.close();
+    const subscription = await registration.pushManager?.getSubscription();
+    if (subscription) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          subscription.unsubscribe(),
+          new Promise((resolve) => {
+            timer = setTimeout(resolve, 1500);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+  } catch {
+    /* The cleared device flag prevents display even if the vendor is unreachable. */
+  }
+}
 export function markPendingLogout() {
   try {
     localStorage.setItem(LOGOUT, '1');

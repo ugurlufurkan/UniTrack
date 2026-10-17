@@ -5,6 +5,7 @@ import {
   hasPendingLogout,
   flushPendingLogout,
   clearPendingLogout,
+  stopBrowserPush,
 } from './device-storage';
 
 export class ApiError extends Error {
@@ -51,12 +52,14 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       throw new ApiError('Çıkışın tamamlanması için bağlantını kontrol et.', 503);
     if (!isPublic) throw new ApiError('Oturum kapatıldı. Tekrar giriş yap.', 401);
   }
+  if (path === 'auth/logout') markPendingLogout();
   if (
     ['auth/logout', 'auth/logout-all', 'auth/change-password'].includes(path) ||
     (path === 'auth/me' && options.method === 'DELETE')
-  )
+  ) {
     await clearDeviceData();
-  if (path === 'auth/logout') markPendingLogout();
+    await stopBrowserPush();
+  }
   const headers = new Headers(options.headers);
   if (options.body && !(options.body instanceof FormData))
     headers.set('Content-Type', 'application/json');
@@ -73,7 +76,10 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     throw new ApiError('Bağlantı kurulamadı. İnternet bağlantını kontrol et.', 503);
   }
   if (path === 'auth/logout' && response.status < 500) clearPendingLogout();
-  if (response.ok && /^auth\/(login|register|google)$/.test(path)) await clearDeviceData();
+  if (response.ok && /^auth\/(login|register|google)$/.test(path)) {
+    await clearDeviceData();
+    await stopBrowserPush();
+  }
   if (response.status === 204) return undefined as T;
   const data = await response.json();
   if (!response.ok) {

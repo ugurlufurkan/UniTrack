@@ -1,6 +1,6 @@
 import { and, eq, isNull, gt, lt, sql } from "drizzle-orm";
 import { db } from "../../db";
-import { refreshTokens, users } from "../../db/schema";
+import { refreshTokens, users, pushSubscriptions } from "../../db/schema";
 import { hashRefreshToken } from "../../lib/jwt";
 
 class AuthRepository {
@@ -234,6 +234,7 @@ class AuthRepository {
           expiresAt,
           ...deviceInfo,
         }).returning({ id: refreshTokens.id });
+      await tx.update(pushSubscriptions).set({ tokenId: replacement.id }).where(eq(pushSubscriptions.tokenId, claimed[0].id));
       return replacement.id;
     });
   }

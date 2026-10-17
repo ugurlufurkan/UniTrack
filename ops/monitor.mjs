@@ -18,6 +18,7 @@ export async function cycle() {
     web: process.env.WEB_HEALTH_URL || 'http://web:3000/api/health',
   };
   if (process.env.BACKUP_ENABLED === 'true') targets.backup = 'backup-status';
+  if (process.env.PUSH_ENABLED === 'true') targets.push = 'http://backend:5000/api/push-health';
   let allHealthy = true;
   for (const [name, url] of Object.entries(targets)) {
     let healthy = false;

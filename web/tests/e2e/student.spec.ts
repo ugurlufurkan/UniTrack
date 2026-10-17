@@ -75,6 +75,106 @@ test('student can register, manage academic data, sign out and sign in again', a
   expect(errors).toEqual([]);
 });
 
+test('push consent binds reminders to this account and rejects foreign payloads', async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(['notifications'], { origin: 'http://127.0.0.1:3198' });
+  await page.addInitScript(() => {
+    if (!('PushManager' in window)) return;
+    let current: PushSubscription | null = null;
+    PushManager.prototype.getSubscription = async () => current;
+    PushManager.prototype.subscribe = async (options) => {
+      const pair = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, [
+        'deriveBits',
+      ]);
+      const encode = (buffer: ArrayBuffer) =>
+        btoa(String.fromCharCode(...new Uint8Array(buffer)))
+          .replace(/=/g, '')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_');
+      const data = {
+        endpoint: `https://fcm.googleapis.com/fcm/send/fixture-${crypto.randomUUID()}`,
+        keys: {
+          p256dh: encode(await crypto.subtle.exportKey('raw', pair.publicKey)),
+          auth: encode(crypto.getRandomValues(new Uint8Array(16)).buffer),
+        },
+      };
+      current = {
+        endpoint: data.endpoint,
+        options: { applicationServerKey: options?.applicationServerKey as ArrayBuffer },
+        toJSON: () => data,
+        unsubscribe: async () => {
+          current = null;
+          return true;
+        },
+      } as unknown as PushSubscription;
+      return current;
+    };
+  });
+  await page.goto('/register');
+  await page.getByLabel('Ad soyad').fill('Push Öğrenci');
+  await page.getByLabel('E-posta adresi').fill(`push-${Date.now()}@example.invalid`);
+  await page.getByLabel('Şifre', { exact: true }).fill('UniTrackTest123!');
+  await page.getByLabel('Şifre tekrar', { exact: true }).fill('UniTrackTest123!');
+  await page.getByRole('checkbox').check();
+  await page.getByRole('button', { name: 'Hesabımı oluştur' }).click();
+  await expect(page).toHaveURL('/');
+  await page.goto('/settings');
+  await page.getByRole('button', { name: 'Hatırlatmaları aç', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Bu cihazdaki hatırlatmalar açıldı.');
+  const owner = await page.evaluate(
+    () =>
+      new Promise<string>((resolve, reject) => {
+        const open = indexedDB.open('unitrack-device', 1);
+        open.onerror = () => reject(new Error('Device store unavailable'));
+        open.onsuccess = () => {
+          const tx = open.result.transaction('preferences');
+          const read = tx.objectStore('preferences').get('pushOwner');
+          tx.oncomplete = () => {
+            open.result.close();
+            resolve(read.result);
+          };
+        };
+      }),
+  );
+  const worker = context.serviceWorkers().find((item) => item.url().endsWith('/sw.js'))!;
+  const notices = await worker.evaluate(async (owner) => {
+    type Notice = { title: string; url: string };
+    const scope = globalThis as unknown as {
+      notices: Notice[];
+      registration: {
+        showNotification: (title: string, options: { data: { url: string } }) => Promise<void>;
+      };
+      PushEvent: new (type: string, options: { data: string }) => Event;
+      dispatchEvent: (event: Event) => boolean;
+    };
+    scope.notices = [];
+    scope.registration.showNotification = async (title, options) => {
+      scope.notices.push({ title, url: options.data.url });
+    };
+    for (const identity of ['another-account', owner]) {
+      const event = new scope.PushEvent('push', {
+        data: JSON.stringify({
+          owner: identity,
+          title: 'Reminder',
+          url: 'https://outside.example/phish',
+        }),
+      });
+      const pending: Promise<unknown>[] = [];
+      Object.defineProperty(event, 'waitUntil', {
+        value: (promise: Promise<unknown>) => pending.push(promise),
+      });
+      scope.dispatchEvent(event);
+      await Promise.all(pending);
+    }
+    return scope.notices;
+  }, owner);
+  expect(notices).toEqual([{ title: 'Reminder', url: 'http://127.0.0.1:3198/calendar' }]);
+  await page.getByRole('button', { name: 'Hatırlatmaları kapat', exact: true }).click();
+  await expect(page.getByRole('status')).toContainText('Bu cihazdaki hatırlatmalar kapatıldı.');
+});
+
 test('offline sign-out clears the device copy and finishes server logout on reconnect', async ({
   page,
   context,

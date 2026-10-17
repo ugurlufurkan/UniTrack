@@ -4,6 +4,8 @@ const rules = [
   [/^auth\/(logout|logout-all|change-password|verify-email\/request)$/, ['POST']],
   [/^auth\/devices$/, ['GET']],
   [/^auth\/devices\/[\w-]+$/, ['DELETE']],
+  [/^push\/config$/, ['GET']],
+  [/^push\/subscriptions$/, ['POST', 'DELETE']],
   [/^(semesters|courses)$/, ['GET', 'POST']],
   [/^(semesters|courses)\/[\w-]+$/, ['PUT', 'DELETE']],
   [/^(dashboard|statistics|gpa|transcript|export|settings)$/, ['GET']],

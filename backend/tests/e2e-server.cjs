@@ -8,8 +8,11 @@ Object.assign(process.env, {
   NODE_ENV: "test",
 });
 const { createDatabase } = require("./database.cjs");
+const fixtureKeys = require("web-push").generateVAPIDKeys();
+Object.assign(process.env, { VAPID_PUBLIC_KEY: fixtureKeys.publicKey, VAPID_PRIVATE_KEY: fixtureKeys.privateKey, VAPID_SUBJECT: "mailto:fixture@example.invalid" });
 (async () => {
-  const { client, db } = await createDatabase();
+  const { client, db, schema } = await createDatabase();
+  await db.insert(schema.pushWorkerState).values({ id: "default", lastSeen: new Date() });
   require("../dist/db").db = db;
   const app = require("../dist/app").default;
   const server = app.listen(5105, "127.0.0.1");

@@ -61,6 +61,7 @@ Hosting çalışma dizini `web/` olmalıdır. HTTPS kullan. `API_URL` çalışan
 - Ağ, doğrulama, boş liste, yüklenme ve tekrar deneme durumları arayüzde gösterilir.
 - Gerçek zamanlı abonelik yoktur: veriler sayfa geçişinde, kayıt işlemi sonrasında ve sekmeye geri dönüldüğünde yenilenir. Web ve Android aynı kalıcı veriyi kullanır.
 - Portal ana ekrana yüklenebilir. Çevrimdışı ders özeti cihaz ayarlarında açıkça etkinleştirilir; yalnızca ders/dönem alanları IndexedDB'de saklanır, 7 gün sonra gösterilmez. API yanıtları, oturum anahtarları ve özel HTML önbelleğe alınmaz. Çıkış/hesap değişimi kopyayı temizler; çevrimdışı çıkış bağlantı döndüğünde sunucuda tamamlanır. Çevrimdışı düzenleme veya otomatik veri birleştirme yapılmaz.
+- Tarayıcı hatırlatmaları cihaz ayarlarından izinle açılır. [VAPID ve worker kurulumu](../ops/README.md#tarayıcı-hatırlatmaları) gerekir. Abonelik aktif cihaz oturumuna bağlıdır; çıkış ve izin kapatma teslimatı durdurur. Service worker yalnızca aynı hesap için açık izin varsa bildirimi gösterir; bildirim bağlantıları bu portalın içinde kalır.
 
 ## Doğrulama
 

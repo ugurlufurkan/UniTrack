@@ -42,6 +42,9 @@ services:
       SMTP_PASS: ${SMTP_PASS:?Set the SMTP password}
       SMTP_FROM: ${SMTP_FROM:?Set the sender address}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: mailto:${OPS_EMAIL}
     networks: [edge, data]
     depends_on:
       db: { condition: service_healthy }
@@ -60,6 +63,27 @@ services:
     depends_on:
       backend: { condition: service_healthy }
     restart: unless-stopped
+  push:
+    build: ../backend
+    command: ['node', 'dist/workers/push.js']
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://unitrack:${POSTGRES_PASSWORD}@db:5432/unitrack
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: mailto:${OPS_EMAIL}
+      PUSH_TIMEZONE: ${PUSH_TIMEZONE:-Europe/Istanbul}
+    networks: [edge, data]
+    profiles: [push]
+    depends_on:
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ['CMD', 'node', '-e', 'fetch("http://backend:5000/api/push-health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 30s
+      timeout: 8s
+      retries: 3
+    restart: unless-stopped
+    stop_grace_period: 35s
   ingress:
     image: caddy:2-alpine
     environment:
@@ -82,6 +106,7 @@ services:
       ALERT_WEBHOOK_URL: ${ALERT_WEBHOOK_URL:-}
       ENABLE_EXTERNAL_ALERTS: ${ENABLE_EXTERNAL_ALERTS:-false}
       BACKUP_ENABLED: ${BACKUP_ENABLED:-false}
+      PUSH_ENABLED: ${PUSH_ENABLED:-false}
     volumes: [monitor_state:/state, backup_status:/status:ro]
     networks: [edge]
     depends_on: [web, backend]
