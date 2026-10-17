@@ -30,6 +30,12 @@ test("physical PostgreSQL migrations and concurrent imports/rotations/push claim
     const data = [{ year: 2026, term: "Güz", courses: [{ name: "Concurrent import", credit: 3, grade: "AA" }] }];
     const imports = await Promise.all([importSemesters(user.id, data), importSemesters(user.id, data)]);
     assert.equal(imports.reduce((total, item) => total + item.importedCourses, 0), 1);
+    const attendance = require("../dist/modules/attendance/attendance.repository");
+    const [semester] = await db.select().from(schema.semesters).where(eq(schema.semesters.userId, user.id));
+    const [course] = await db.select().from(schema.courses).where(eq(schema.courses.semesterId, semester.id));
+    const record = { weekNumber: 1, date: "2026-10-17", attendedHours: 2, absentHours: 1, excusedHours: 0 };
+    await Promise.all([attendance.upsertRecord(user.id, course.id, record), attendance.upsertRecord(user.id, course.id, record)]);
+    assert.equal((await attendance.findCourseAttendance(user.id, course.id)).records.length, 1);
     const token = generateRefreshToken({ userId: user.id });
     await authRepository.saveRefreshToken(user.id, token, new Date(Date.now() + 86400000));
     const rotations = await Promise.all([authService.refresh(token), authService.refresh(token), authService.refresh(token)]);
