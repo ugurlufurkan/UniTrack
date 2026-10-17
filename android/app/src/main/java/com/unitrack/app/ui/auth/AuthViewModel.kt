@@ -126,17 +126,14 @@ class AuthViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            val refreshToken = authPreferences.refreshToken.first().orEmpty()
             try {
-                val refreshToken = authPreferences.refreshToken.first().orEmpty()
-                repository.logout(refreshToken)
-            } finally {
                 authPreferences.clearTokens()
-                // Bir sonraki kullanıcı bu cihazda giriş yaparsa önceki
-                // kullanıcının önbelleğe alınmış dashboard/ders verilerini
-                // görmesin.
                 offlineCache.clear()
+            } finally {
                 _authState.value = AuthState.Idle
             }
+            repository.logout(refreshToken)
         }
     }
 }

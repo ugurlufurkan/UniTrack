@@ -47,6 +47,29 @@ class AuthPreferences @Inject constructor(
         }
     }
 
+    suspend fun saveRotatedTokens(expectedRefresh: String, access: String, refresh: String): Boolean {
+        var saved = false
+        context.dataStore.edit { prefs ->
+            if (prefs[REFRESH_TOKEN] == expectedRefresh) {
+                prefs[ACCESS_TOKEN] = access
+                prefs[REFRESH_TOKEN] = refresh
+                saved = true
+            }
+        }
+        return saved
+    }
+
+    suspend fun clearTokensIfCurrent(expectedRefresh: String?): Boolean {
+        var cleared = false
+        context.dataStore.edit { prefs ->
+            if (prefs[REFRESH_TOKEN] == expectedRefresh) {
+                prefs.clear()
+                cleared = true
+            }
+        }
+        return cleared
+    }
+
     // Refresh sonrası sadece access token güncellenir
     suspend fun updateAccessToken(access: String) {
         context.dataStore.edit { prefs ->

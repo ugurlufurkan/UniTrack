@@ -6,6 +6,10 @@ import com.unitrack.app.data.repository.AuthPreferences
 import com.unitrack.app.data.session.SessionEventBus
 import dagger.Lazy
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import java.util.Base64
 import okhttp3.Authenticator
 import okhttp3.Request
 import okhttp3.Response
@@ -20,8 +24,8 @@ import javax.inject.Inject
 internal interface SessionCredentials {
     fun accessToken(): String?
     fun refreshToken(): String?
-    fun save(access: String, refresh: String)
-    fun clear()
+    fun saveIfCurrent(expectedRefresh: String, access: String, refresh: String): Boolean
+    fun clearIfCurrent(expectedRefresh: String?): Boolean
 }
 
 class TokenAuthenticator internal constructor(
@@ -36,8 +40,8 @@ class TokenAuthenticator internal constructor(
     ) : this(object : SessionCredentials {
         override fun accessToken() = runBlocking { authPreferences.getAccessTokenOnce() }
         override fun refreshToken() = runBlocking { authPreferences.getRefreshTokenOnce() }
-        override fun save(access: String, refresh: String) = runBlocking { authPreferences.saveTokens(access, refresh) }
-        override fun clear() = runBlocking { authPreferences.clearTokens() }
+        override fun saveIfCurrent(expectedRefresh: String, access: String, refresh: String) = runBlocking { authPreferences.saveRotatedTokens(expectedRefresh, access, refresh) }
+        override fun clearIfCurrent(expectedRefresh: String?) = runBlocking { authPreferences.clearTokensIfCurrent(expectedRefresh) }
     }, { authApiLazy.get() }, { sessionEventBus.notifyForceLogout() })
 
     override fun authenticate(route: Route?, response: Response): Request? {
@@ -45,14 +49,15 @@ class TokenAuthenticator internal constructor(
         // NOT: Sadece "/auth/refresh" ile eşleşiyor, "/api/" veya "/api/v1/" önekinden bağımsız —
         // base URL ileride /api/v1/'e taşınırsa bu kontrol sessizce kırılmasın diye.
         if (response.request.url.encodedPath.contains("/auth/refresh")) {
-            forceLogout()
+            // The outer refresh call owns the credential it may invalidate.
             return null
         }
 
         // Aynı istek zaten birkaç kez retry edildiyse (yeni token da 401 alıyorsa) pes et.
         // Böylece bozuk bir refresh döngüsü sonsuza kadar dönmez.
         if (responseCount(response) >= 3) {
-            forceLogout()
+            if (credentials.accessToken() == response.request.header("Authorization")?.removePrefix("Bearer "))
+                forceLogout(credentials.refreshToken())
             return null
         }
 
@@ -63,6 +68,7 @@ class TokenAuthenticator internal constructor(
 
             // Eğer biz beklerken başka bir paralel istek token'ı çoktan yenilemişse, direkt o yeni token'ı kullan.
             if (!currentToken.isNullOrBlank() && currentToken != incomingToken) {
+                if (tokenOwner(currentToken) == null || tokenOwner(currentToken) != tokenOwner(incomingToken)) return null
                 return response.request.newBuilder()
                     .header("Authorization", "Bearer $currentToken")
                     .build()
@@ -70,7 +76,7 @@ class TokenAuthenticator internal constructor(
 
             // Refresh token yoksa direkt çıkış yap
             val refreshToken = credentials.refreshToken() ?: run {
-                forceLogout()
+                forceLogout(null)
                 return null
             }
 
@@ -86,7 +92,7 @@ class TokenAuthenticator internal constructor(
             return if (refreshResponse.isSuccessful) {
                 refreshResponse.body()?.takeIf { it.accessToken.isNotBlank() && it.refreshToken.isNotBlank() }?.let { newTokens ->
                     // Yeni tokenları DataStore'a kaydet (kullanıcı adı korunur, saveTokens null name'i overwrite etmiyor)
-                    credentials.save(newTokens.accessToken, newTokens.refreshToken)
+                    if (!credentials.saveIfCurrent(refreshToken, newTokens.accessToken, newTokens.refreshToken)) return null
 
                     // 401 alan o ilk başarısız isteği (örneğin /api/dashboard) yeni token ile KOPYALAYIP tekrar yolla
                     response.request.newBuilder()
@@ -97,7 +103,7 @@ class TokenAuthenticator internal constructor(
                 // Refresh token da expire olmuş, geçersiz, ya da reuse tespit edilmiş
                 // (backend tüm oturumları düşürmüş olabilir). Oturumu kapat.
                 refreshResponse.errorBody()?.close()
-                if (refreshResponse.code() == 401 || refreshResponse.code() == 403) forceLogout()
+                if (refreshResponse.code() == 401 || refreshResponse.code() == 403) forceLogout(refreshToken)
                 null
             }
         }
@@ -109,10 +115,14 @@ class TokenAuthenticator internal constructor(
      * arka planda düşen bir oturumla bozuk bir ekranda takılı kalmak yerine
      * otomatik olarak LoginScreen'e döner.
      */
-    private fun forceLogout() {
-        credentials.clear()
-        notifyLogout()
+    private fun forceLogout(expectedRefresh: String?) {
+        if (credentials.clearIfCurrent(expectedRefresh)) notifyLogout()
     }
+
+    private fun tokenOwner(token: String?): String? = runCatching {
+        val payload = token?.split('.')?.getOrNull(1) ?: return null
+        Json.parseToJsonElement(String(Base64.getUrlDecoder().decode(payload), Charsets.UTF_8)).jsonObject["userId"]?.jsonPrimitive?.content
+    }.getOrNull()
 
     private fun responseCount(response: Response): Int {
         var result = 1

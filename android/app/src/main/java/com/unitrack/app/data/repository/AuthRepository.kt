@@ -7,6 +7,7 @@ import com.unitrack.app.data.dto.GoogleLoginRequest
 import com.unitrack.app.data.dto.LogoutRequest
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.io.IOException
 
 @Singleton
 class AuthRepository @Inject constructor(
@@ -25,7 +26,8 @@ class AuthRepository @Inject constructor(
 
     suspend fun logout(refreshToken: String) {
         if (refreshToken.isNotBlank()) {
-            apiService.logout(LogoutRequest(refreshToken))
+            try { apiService.logout(LogoutRequest(refreshToken)) }
+            catch (_: IOException) { /* Local sign-out still completes while offline. */ }
         }
     }
 
