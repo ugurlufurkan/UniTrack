@@ -4,20 +4,31 @@ import { db } from "../../db";
 import { courses, courseComponents, semesters, users } from "../../db/schema";
 import { CreateCourseDto, UpdateCourseDto } from "./course.types";
 
-import { calculateGrade, resolveGradeScale } from "../../shared/utils/grade.util";
+import {
+  calculateGrade,
+  resolveGradeScale,
+} from "../../shared/utils/grade.util";
 import { AppError } from "../../shared/errors/AppError";
 
-const getUserDefaultScale = async (userId: string) => {
-  const [user] = await db
+const getUserDefaultScale = async (
+  userId: string,
+  client: Pick<typeof db, "select"> = db,
+  lock = false,
+) => {
+  const query = client
     .select({ defaultGradeScale: users.defaultGradeScale })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
+  const [user] = await (lock ? query.for("no key update") : query);
+  if (!user) throw AppError.notFound("Kullanıcı bulunamadı.");
 
   return user?.defaultGradeScale ?? null;
 };
 
-const attachComponents = async (courseRows: (typeof courses.$inferSelect)[]) => {
+const attachComponents = async (
+  courseRows: (typeof courses.$inferSelect)[],
+) => {
   if (!courseRows.length) return [];
 
   const ids = courseRows.map((c) => c.id);
@@ -78,25 +89,30 @@ export const findOne = async (userId: string, courseId: string) => {
 };
 
 export const create = async (userId: string, data: CreateCourseDto) => {
-  const semester = await db
-    .select()
-    .from(semesters)
-    .where(and(eq(semesters.id, data.semesterId), eq(semesters.userId, userId)))
-    .limit(1);
-
-  if (!semester.length) {
-    throw AppError.badRequest("Dönem bulunamadı.");
-  }
-
-  const userDefaultScale = await getUserDefaultScale(userId);
-  const scale = resolveGradeScale(data.gradeScale, userDefaultScale);
-
-  const grade = calculateGrade(
-    data.components.map((c) => ({ weight: c.weight, score: c.score ?? null })),
-    scale
-  );
-
   return db.transaction(async (tx) => {
+    const userDefaultScale = await getUserDefaultScale(userId, tx, true);
+    const semester = await tx
+      .select()
+      .from(semesters)
+      .where(
+        and(eq(semesters.id, data.semesterId), eq(semesters.userId, userId)),
+      )
+      .limit(1);
+
+    if (!semester.length) {
+      throw AppError.badRequest("Dönem bulunamadı.");
+    }
+
+    const scale = resolveGradeScale(data.gradeScale, userDefaultScale);
+
+    const grade = calculateGrade(
+      data.components.map((c) => ({
+        weight: c.weight,
+        score: c.score ?? null,
+      })),
+      scale,
+    );
+
     const [course] = await tx
       .insert(courses)
       .values({
@@ -120,7 +136,7 @@ export const create = async (userId: string, data: CreateCourseDto) => {
           weight: c.weight,
           score: c.score ?? null,
           sortOrder: index,
-        }))
+        })),
       )
       .returning();
 
@@ -131,40 +147,43 @@ export const create = async (userId: string, data: CreateCourseDto) => {
 export const update = async (
   userId: string,
   courseId: string,
-  data: UpdateCourseDto
+  data: UpdateCourseDto,
 ) => {
-  const existing = await db
-    .select()
-    .from(courses)
-    .innerJoin(semesters, eq(courses.semesterId, semesters.id))
-    .where(and(eq(courses.id, courseId), eq(semesters.userId, userId)))
-    .limit(1);
-
-  if (!existing.length) {
-    throw AppError.notFound("Ders bulunamadı.");
-  }
-
-  const current = existing[0].courses;
-
-  const currentComponents = await db
-    .select()
-    .from(courseComponents)
-    .where(eq(courseComponents.courseId, courseId))
-    .orderBy(asc(courseComponents.sortOrder));
-
-  const effectiveComponents = data.components ?? currentComponents;
-  const effectiveGradeScale =
-    data.gradeScale !== undefined ? data.gradeScale : current.gradeScale;
-
-  const userDefaultScale = await getUserDefaultScale(userId);
-  const scale = resolveGradeScale(effectiveGradeScale, userDefaultScale);
-
-  const grade = calculateGrade(
-    effectiveComponents.map((c) => ({ weight: c.weight, score: c.score ?? null })),
-    scale
-  );
-
   return db.transaction(async (tx) => {
+    const userDefaultScale = await getUserDefaultScale(userId, tx, true);
+    const existing = await tx
+      .select()
+      .from(courses)
+      .innerJoin(semesters, eq(courses.semesterId, semesters.id))
+      .where(and(eq(courses.id, courseId), eq(semesters.userId, userId)))
+      .limit(1);
+
+    if (!existing.length) {
+      throw AppError.notFound("Ders bulunamadı.");
+    }
+
+    const current = existing[0].courses;
+
+    const currentComponents = await tx
+      .select()
+      .from(courseComponents)
+      .where(eq(courseComponents.courseId, courseId))
+      .orderBy(asc(courseComponents.sortOrder));
+
+    const effectiveComponents = data.components ?? currentComponents;
+    const effectiveGradeScale =
+      data.gradeScale !== undefined ? data.gradeScale : current.gradeScale;
+
+    const scale = resolveGradeScale(effectiveGradeScale, userDefaultScale);
+
+    const grade = calculateGrade(
+      effectiveComponents.map((c) => ({
+        weight: c.weight,
+        score: c.score ?? null,
+      })),
+      scale,
+    );
+
     const [updated] = await tx
       .update(courses)
       .set({
@@ -195,7 +214,7 @@ export const update = async (
             weight: c.weight,
             score: c.score ?? null,
             sortOrder: index,
-          }))
+          })),
         )
         .returning();
     }

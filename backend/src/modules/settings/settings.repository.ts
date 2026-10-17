@@ -28,7 +28,7 @@ export const getSettings = async (userId: string) => {
 
 export const updateSettings = async (
   userId: string,
-  data: SettingsUpdateInput
+  data: SettingsUpdateInput,
 ) => {
   // ÖNEMLİ: `"alan" in data` KULLANMA — zod, optional() alanları client hiç
   // göndermese bile parse sonucunda `undefined` değerle birlikte objede
@@ -38,24 +38,47 @@ export const updateSettings = async (
   // alana hiç dokunmadı, null = client bilerek sıfırladı.
   const patch: Partial<typeof users.$inferInsert> = {};
 
-  if (data.themePreference !== undefined) patch.themePreference = data.themePreference;
+  if (data.themePreference !== undefined)
+    patch.themePreference = data.themePreference;
   if (data.targetGpa !== undefined) patch.targetGpa = data.targetGpa;
-  if (data.examPeriodStart !== undefined) patch.examPeriodStart = data.examPeriodStart;
-  if (data.examPeriodEnd !== undefined) patch.examPeriodEnd = data.examPeriodEnd;
+  if (data.examPeriodStart !== undefined)
+    patch.examPeriodStart = data.examPeriodStart;
+  if (data.examPeriodEnd !== undefined)
+    patch.examPeriodEnd = data.examPeriodEnd;
 
   if (Object.keys(patch).length === 0) {
     return getSettings(userId);
   }
 
-  const [row] = await db
-    .update(users)
-    .set(patch)
-    .where(eq(users.id, userId))
-    .returning(SETTINGS_COLUMNS);
+  return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select(SETTINGS_COLUMNS)
+      .from(users)
+      .where(eq(users.id, userId))
+      .for("no key update");
+    if (!current) throw AppError.notFound("Kullanıcı bulunamadı.");
+    const start =
+      data.examPeriodStart === undefined
+        ? current.examPeriodStart
+        : data.examPeriodStart;
+    const end =
+      data.examPeriodEnd === undefined
+        ? current.examPeriodEnd
+        : data.examPeriodEnd;
+    if (start && end && start > end)
+      throw AppError.badRequest(
+        "Sınav dönemi başlangıcı bitişten sonra olamaz.",
+      );
+    const [row] = await tx
+      .update(users)
+      .set(patch)
+      .where(eq(users.id, userId))
+      .returning(SETTINGS_COLUMNS);
 
-  if (!row) {
-    throw AppError.notFound("Kullanıcı bulunamadı.");
-  }
+    if (!row) {
+      throw AppError.notFound("Kullanıcı bulunamadı.");
+    }
 
-  return row;
+    return row;
+  });
 };
