@@ -21,6 +21,8 @@ docker compose --env-file ops/.env -f ops/compose.yml ps
 
 Caddy, doğru DNS ve açık 80/443 portlarıyla HTTPS sertifikalarını alıp yeniler. Web istemci IP başlığı ingress tarafından ezilir ve Next.js tarafından HMAC imzalanır. API ve web'in önüne başka bir CDN/proxy eklersen güven zincirini yeniden doğrula.
 
+`APP_TIMEZONE`, API'deki “bugün” hesabını sunucunun saat diliminden bağımsız belirler; varsayılan `Europe/Istanbul` değeridir. IANA saat dilimi adını kullan. Bildirim worker'ında `PUSH_TIMEZONE` verilirse tekrarlanan hatırlatmalar için bu değer kullanılır; aksi halde uygulamanın saat dilimi geçerlidir.
+
 Bu profil yeni yerel PostgreSQL oluşturur. Mevcut Neon/veritabanındaki öğrenci verilerini kendiliğinden taşımaz. Mevcut sistem için veritabanı bağlantısını uyarlayıp doğrulanmış yedek/geri dönüş planı kullan; boş veritabanına geçerek mevcut hesapları kaybetme.
 
 ## Yayın kabulü

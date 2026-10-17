@@ -1,4 +1,16 @@
-import { and, asc, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  lt,
+  lte,
+  or,
+  sql,
+} from "drizzle-orm";
+import { calendarDay } from "../../lib/calendar-time";
 
 import { db } from "../../db";
 import {
@@ -285,8 +297,8 @@ export const findAllSchedule = async (userId: string) => {
     .orderBy(asc(courseSchedule.dayOfWeek), asc(courseSchedule.startTime));
 };
 
-export const findTodaySchedule = async (userId: string) => {
-  const today = new Date().getDay();
+export const findTodaySchedule = async (userId: string, now = new Date()) => {
+  const today = calendarDay(now).weekday;
 
   return db
     .select({
@@ -390,14 +402,9 @@ export const removeSchedule = async (userId: string, scheduleId: string) => {
   await db.delete(courseSchedule).where(eq(courseSchedule.id, scheduleId));
 };
 
-export const getCalendarSummary = async (userId: string) => {
-  const now = new Date();
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date(now);
-  todayEnd.setHours(23, 59, 59, 999);
-
-  const todayClasses = await findTodaySchedule(userId);
+export const getCalendarSummary = async (userId: string, now = new Date()) => {
+  const { start: todayStart, end: todayEnd } = calendarDay(now);
+  const todayClasses = await findTodaySchedule(userId, now);
 
   const upcomingExams = await db
     .select({
@@ -493,7 +500,7 @@ export const getCalendarSummary = async (userId: string) => {
         eq(events.userId, userId),
         eq(events.type, "lesson"),
         gte(events.startAt, todayStart),
-        lte(events.startAt, todayEnd),
+        lt(events.startAt, todayEnd),
       ),
     )
     .orderBy(asc(events.startAt));

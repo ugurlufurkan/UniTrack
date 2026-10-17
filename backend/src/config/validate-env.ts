@@ -7,6 +7,7 @@ const schema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(5000),
+  APP_TIMEZONE: z.string().default("Europe/Istanbul").refine(value => { try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; } catch { return false; } }, "Invalid IANA timezone"),
   FRONTEND_URL: z.string().url().default("http://localhost:3000"),
   GOOGLE_CLIENT_ID: z.preprocess(optional, z.string().optional()),
   WEB_PROXY_SECRET: z.preprocess(optional, z.string().min(32).optional()),

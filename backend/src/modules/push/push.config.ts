@@ -1,5 +1,6 @@
 import { createECDH, ECDH } from "node:crypto";
 import { z } from "zod";
+import { wallTime, fromWallTime } from "../../lib/calendar-time";
 
 export function pushConfiguration() {
   const publicKey = process.env.VAPID_PUBLIC_KEY, privateKey = process.env.VAPID_PRIVATE_KEY, subject = process.env.VAPID_SUBJECT;
@@ -23,27 +24,9 @@ export const subscriptionSchema = z.object({ endpoint, keys: z.object({
 }) });
 export const unsubscribeSchema = z.object({ endpoint });
 
-const formatters = new Map<string, Intl.DateTimeFormat>();
-function wallTime(date: Date, zone: string) {
-  let format = formatters.get(zone);
-  if (!format) { format = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }); formatters.set(zone, format); }
-  const p = Object.fromEntries(format.formatToParts(date).map(part => [part.type, Number(part.value)]));
-  return new Date(Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second, date.getUTCMilliseconds()));
-}
-function fromWallTime(wall: Date, zone: string) {
-  let estimate = wall.getTime(), previous: number | undefined;
-  for (let n = 0; n < 5; n++) {
-    const next = estimate + wall.getTime() - wallTime(new Date(estimate), zone).getTime();
-    if (next === estimate) return new Date(next);
-    if (next === previous) return new Date(Math.max(estimate, next)); // nonexistent DST wall time: move forward
-    previous = estimate; estimate = next;
-  }
-  return new Date(estimate);
-}
-
 export function dueOccurrences(start: Date, recurrence: string, offsetMs: number, now: Date, windowMs = 300000) {
   const time = now.getTime(), target = time + offsetMs;
-  const zone = process.env.PUSH_TIMEZONE || "Europe/Istanbul";
+  const zone = process.env.PUSH_TIMEZONE || process.env.APP_TIMEZONE || "Europe/Istanbul";
   const localStart = wallTime(start, zone), localTarget = wallTime(new Date(target), zone);
   const values: Date[] = [];
   if (recurrence === "daily" || recurrence === "weekly") {

@@ -27,6 +27,7 @@ services:
     build: ../backend
     environment:
       NODE_ENV: production
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Istanbul}
       DATABASE_URL: postgresql://unitrack:${POSTGRES_PASSWORD}@db:5432/unitrack
       JWT_SECRET: ${JWT_SECRET:?Set a random JWT secret}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?Set a distinct random refresh secret}
@@ -68,6 +69,7 @@ services:
     command: ['node', 'dist/workers/push.js']
     environment:
       NODE_ENV: production
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Istanbul}
       DATABASE_URL: postgresql://unitrack:${POSTGRES_PASSWORD}@db:5432/unitrack
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
