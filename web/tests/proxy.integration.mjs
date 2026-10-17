@@ -149,6 +149,27 @@ test(
       });
       assert.equal(unavailable.status, 503);
       assert.equal(unavailable.headers.getSetCookie().length, 0);
+      state.failRefresh = false;
+      for (const status of [429, 400, 401]) {
+        state.refreshStatus = status;
+        const limited = await fetch(`${base}/api/session/refresh`, {
+          method: 'POST',
+          headers: {
+            Origin: base,
+            'X-UniTrack-Web': '1',
+            Cookie: `unitrack_refresh=fixture-${status}`,
+          },
+        });
+        assert.equal(limited.status, status === 400 ? 503 : status);
+        if (status !== 401)
+          assert.equal(
+            limited.headers.getSetCookie().length,
+            0,
+            'temporary or malformed responses must retain valid credentials',
+          );
+        else assert.ok(limited.headers.getSetCookie().every((value) => /Max-Age=0/.test(value)));
+      }
+      state.refreshStatus = 0;
       state.failLogout = true;
       const logout = await authRequest('auth/logout', { method: 'POST' });
       assert.equal(logout.status, 503);

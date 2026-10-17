@@ -41,12 +41,21 @@ export async function POST(request: NextRequest) {
         .catch(() => {});
     }
     const result = await operation;
-    if (result.status >= 500) return jsonError('Oturum servisine ulaşılamıyor. Tekrar dene.', 503);
-    if (!result.accessToken || !result.refreshToken || result.status !== 200) {
+    if (result.status === 401 || result.status === 403) {
       const response = jsonError('Oturumun sona erdi. Tekrar giriş yap.', 401);
       clearSession(response);
       return response;
     }
+    if (result.status === 429)
+      return jsonError('Çok fazla istek gönderildi. Biraz sonra tekrar dene.', 429);
+    if (
+      result.status !== 200 ||
+      typeof result.accessToken !== 'string' ||
+      !result.accessToken ||
+      typeof result.refreshToken !== 'string' ||
+      !result.refreshToken
+    )
+      return jsonError('Oturum servisine ulaşılamıyor. Tekrar dene.', 503);
     const response = NextResponse.json(
       { success: true },
       { headers: { 'Cache-Control': 'no-store' } },

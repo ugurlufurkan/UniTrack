@@ -30,8 +30,8 @@ async function refreshSession() {
         method: 'POST',
         headers: { 'X-UniTrack-Web': '1' },
       });
-      if (response.status >= 500)
-        throw new ApiError('Oturum servisine ulaşılamıyor. Tekrar dene.', 503);
+      if (response.status >= 500 || response.status === 429)
+        throw new ApiError('Oturum servisine ulaşılamıyor. Tekrar dene.', response.status);
       return response.ok;
     };
     refreshing = (async () => {

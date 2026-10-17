@@ -90,6 +90,7 @@ export function createFixture() {
     refreshCount: 0,
     failLogout: false,
     failRefresh: false,
+    refreshStatus: 0,
     requests: [],
     access: 'test-access',
     refresh: 'test-refresh',
@@ -125,6 +126,8 @@ export function createFixture() {
     }
     if (path === 'auth/refresh') {
       state.refreshCount++;
+      if (state.refreshStatus)
+        return send({ message: 'Refresh fixture error' }, state.refreshStatus);
       if (state.failRefresh) return send({ message: 'Temporarily unavailable' }, 503);
       if (body.refreshToken !== state.refresh) return send({ message: 'Expired' }, 401);
       state.access = 'test-renewed-access';
